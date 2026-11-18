@@ -17,6 +17,7 @@ import { deleteItems, folderPath, uploadFileItem } from '../data/vault'
 import { MAX_FILE_BYTES } from '../data/uploadTree'
 import { usePlayer } from '../player/Player'
 import { useShell } from './AppShell'
+import { YouTubeSearch } from './YouTubeSearch'
 
 const FILTERS: { id: MusicFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -48,6 +49,7 @@ export function MusicPage() {
   const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [linkFormOpen, setLinkFormOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -145,6 +147,9 @@ export function MusicPage() {
         <button onClick={() => fileInput.current?.click()} disabled={busy}>
           ⬆ 음악 파일
         </button>
+        <button className="secondary" onClick={() => setSearchOpen(!searchOpen)}>
+          🔍 유튜브 검색
+        </button>
         <button className="secondary" onClick={() => setLinkFormOpen(!linkFormOpen)} disabled={busy}>
           🔗 링크 추가
         </button>
@@ -160,6 +165,20 @@ export function MusicPage() {
           }}
         />
       </header>
+
+      {searchOpen && (
+        <YouTubeSearch
+          saveLabel="음악에 저장"
+          savedUrls={new Set(all.map((t) => musicContent(t).url).filter((u): u is string => Boolean(u)))}
+          onClose={() => setSearchOpen(false)}
+          onPlay={(v) => player.playLink({ url: v.url, title: v.title, artist: v.channel })}
+          onSave={async (v) => {
+            const item = await addMusicLink(backend, { url: v.url, title: v.title, artist: v.channel })
+            if (v.duration) await backend.updateItem(item.id, { content: { ...item.content, duration: v.duration } })
+            await reload()
+          }}
+        />
+      )}
 
       {linkFormOpen && (
         <LinkForm

@@ -452,3 +452,67 @@ button.chip.on { background: var(--accent); color: var(--accent-text); border-co
   .player-seek { order: 3; flex-basis: 100%; }
   .player-embed { margin: 8px 8px 0; justify-self: stretch; width: auto; height: 200px; }
 }
+
+/* ── 동영상 ── */
+.video-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.video-card { display: grid; gap: 8px; align-content: start; }
+.video-card.editing { grid-column: 1 / -1; }
+.video-thumb, .yt-thumb {
+  position: relative; aspect-ratio: 16 / 9; width: 100%; padding: 0; border-radius: 10px; overflow: hidden;
+  background: var(--side); display: grid; place-items: center;
+}
+.video-thumb img, .yt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-noimg { font-size: 2.2rem; }
+.badge-time, .badge-src {
+  position: absolute; bottom: 6px; right: 6px; background: rgb(0 0 0 / 0.75); color: #fff; font-size: 0.75rem;
+  padding: 1px 6px; border-radius: 4px; font-weight: 600;
+}
+.badge-src { right: auto; left: 6px; background: #d0453a; }
+.yt-play {
+  position: absolute; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: rgb(0 0 0 / 0.55); color: #fff; font-size: 1rem; opacity: 0; transition: opacity 0.15s;
+}
+.video-thumb:hover .yt-play, .yt-thumb:hover .yt-play, .video-thumb:focus-visible .yt-play { opacity: 1; }
+@media (hover: none) { .yt-play { opacity: 0.85; } }
+.video-info { display: flex; gap: 4px; align-items: flex-start; }
+.video-info .grow { display: grid; gap: 2px; min-width: 0; }
+.video-info strong { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+.video-info small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.jobs { display: grid; gap: 8px; padding: 12px; background: var(--bg); border-radius: 10px; }
+.job { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; font-size: 0.9rem; }
+.job-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-stage { font-weight: 700; color: var(--muted); }
+.job.converting .job-stage, .job.uploading .job-stage { color: #b7791f; }
+.job.done .job-stage { color: #16a34a; }
+.job.failed .job-stage { color: #d0453a; }
+.job progress { grid-column: 1 / -1; width: 100%; height: 6px; accent-color: var(--accent); }
+.job-detail { grid-column: 1 / -1; color: var(--muted); }
+.job.failed .job-detail { color: #d0453a; }
+
+.viewer {
+  position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.8); display: grid; place-items: center; padding: 16px;
+}
+.viewer-box { width: min(1100px, 100%); display: grid; gap: 8px; color: #fff; }
+.viewer-head { display: flex; align-items: center; gap: 8px; }
+.viewer-head strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-head .icon-btn { color: #fff; }
+.viewer-head .icon-btn:hover { background: rgb(255 255 255 / 0.15); }
+.viewer-media { width: 100%; aspect-ratio: 16 / 9; max-height: 80vh; background: #000; border: none; border-radius: 8px; }
+.viewer-note { margin: 0; color: #ddd; }
+
+/* ── 유튜브 검색 ── */
+.yt-panel { display: grid; gap: 10px; padding: 12px; background: var(--bg); border-radius: 10px; }
+.yt-head { display: flex; justify-content: space-between; align-items: center; }
+.yt-panel input { background: var(--card); }
+.yt-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); max-height: 60vh; overflow-y: auto; }
+.yt-result { display: grid; grid-template-columns: 140px 1fr; gap: 10px; align-items: start; }
+.yt-info { display: grid; gap: 4px; min-width: 0; }
+.yt-info strong { font-size: 0.9rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+button.small { padding: 6px 10px; font-size: 0.85rem; border-radius: 6px; }
+
+@media (max-width: 800px) {
+  .video-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .viewer { padding: 0; }
+  .viewer-box { padding: 8px; }
+}

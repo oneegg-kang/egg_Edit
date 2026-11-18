@@ -32,6 +32,8 @@ jobs:
           # 공개용(publishable) 값이라 저장소에 있어도 괜찮다. 관리자(secret) 키는 절대 여기에 넣지 않는다.
           VITE_SUPABASE_URL: https://fowgxyiewidbpuinjmlb.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_FnSEwxtYfIOgJaRy5Bkgiw_N3X15gfs
+          # 유튜브 검색용 키: GitHub 저장소 Settings → Secrets and variables → Actions → Variables 의 YOUTUBE_API_KEY
+          VITE_YOUTUBE_API_KEY: ${{ vars.YOUTUBE_API_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

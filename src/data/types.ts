@@ -1,7 +1,7 @@
 // 앱 전체가 쓰는 데이터 형태.
 // 이 파일은 Supabase 를 전혀 모른다. 서버를 바꿔도 이 타입은 그대로 둔다.
 
-export type ItemKind = 'document' | 'image' | 'file' | 'music'
+export type ItemKind = 'document' | 'image' | 'file' | 'music' | 'video'
 
 export interface Folder {
   id: string

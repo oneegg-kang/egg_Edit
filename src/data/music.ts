@@ -142,7 +142,7 @@ export async function addMusicLink(
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 /** 음악 목록을 앱 없이 열리는 HTML 로. 파일은 ZIP 안 files/ 를, 링크는 원래 주소를 가리킨다. */
-export function musicListHtml(tracks: Item[], filesPrefix = '../files/'): string {
+export function musicListHtml(tracks: Item[], filesPrefix = '../files/', heading = '음악 목록', unit = '곡'): string {
   const rows = tracks
     .map((t) => {
       const c = musicContent(t)
@@ -153,11 +153,11 @@ export function musicListHtml(tracks: Item[], filesPrefix = '../files/'): string
     .join('\n')
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>음악 목록</title>
+<title>${heading}</title>
 <style>body{font-family:system-ui,sans-serif;max-width:960px;margin:40px auto;padding:0 16px}table{border-collapse:collapse;width:100%}
 td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left}th{background:#f4f4f4}</style></head>
-<body><h1>음악 목록 (${tracks.length}곡)</h1>
-<table><tr><th></th><th>제목</th><th>가수</th><th>종류</th><th>길이</th><th>메모</th></tr>
+<body><h1>${heading} (${tracks.length}${unit})</h1>
+<table><tr><th></th><th>제목</th><th>가수/채널</th><th>종류</th><th>길이</th><th>메모</th></tr>
 ${rows}
 </table></body></html>
 `

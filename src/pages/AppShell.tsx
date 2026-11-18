@@ -85,6 +85,7 @@ const NAV = [
   { key: 'folders', icon: '📎', label: '파일' },
   { key: 'images', icon: '🎨', label: '이미지', soon: '4단계' },
   { key: 'music', icon: '🎵', label: '음악' },
+  { key: 'videos', icon: '🎬', label: '동영상' },
 ]
 
 function Sidebar({ email, onSignOut }: { email: string; onSignOut: () => void }) {

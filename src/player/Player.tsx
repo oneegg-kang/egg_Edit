@@ -14,7 +14,10 @@ interface PlayerState {
   playing: boolean
   /** id 의 곡을 재생한다. queueIds 를 주면 그 순서대로 이어서 재생한다. */
   play: (id: string, queueIds?: string[]) => void
+  /** 저장하지 않은 링크(예: 유튜브 검색 결과)를 바로 재생한다 */
+  playLink: (link: { url: string; title: string; artist?: string }) => void
   toggle: () => void
+  pause: () => void
   next: () => void
   prev: () => void
   stop: () => void
@@ -46,7 +49,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [embedOpen, setEmbedOpen] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const current = items.find((i) => i.id === currentId) ?? null
+  const [temp, setTemp] = useState<Item | null>(null) // 저장하지 않은 링크
+  const current = (temp && temp.id === currentId ? temp : items.find((i) => i.id === currentId)) ?? null
   const embed = current && isLinkTrack(current) ? parseMusicLink(musicContent(current).url ?? '')?.embedUrl : undefined
 
   // 파일 곡만 이어 듣기 대상 (링크는 끝났는지 알 수 없으므로)
@@ -127,6 +131,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     else step(-1)
   }, [step, current])
 
+  const playLink = useCallback((link: { url: string; title: string; artist?: string }) => {
+    const now = new Date().toISOString()
+    const item: Item = {
+      id: `link:${link.url}`, user_id: '', folder_id: null, kind: 'music', title: link.title,
+      content: { url: link.url, artist: link.artist ?? '' }, storage_path: null, mime_type: null, size_bytes: null,
+      created_at: now, updated_at: now,
+    }
+    audio.current?.pause()
+    setTemp(item)
+    setCurrentId(item.id)
+    setEmbedOpen(true)
+    setPlaying(true)
+  }, [])
+
+  const pause = useCallback(() => {
+    audio.current?.pause()
+    // 링크 재생 창은 멈출 방법이 없으므로 닫는다
+    setCurrentId((id) => {
+      const t = id ? items.find((i) => i.id === id) : null
+      return t?.storage_path ? id : null
+    })
+  }, [items])
+
   const toggle = useCallback(() => {
     const a = audio.current
     if (!current) return
@@ -185,7 +212,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (currentId && !current) stop()
   }, [currentId, current, stop])
 
-  const state: PlayerState = { current, playing, play, toggle, next, prev, stop }
+  const state: PlayerState = { current, playing, play, playLink, toggle, pause, next, prev, stop }
   const a = audio.current
 
   return (

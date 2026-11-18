@@ -16,7 +16,7 @@ import { createDocument, docTitle } from '../data/documents'
 import { readDataTransfer, readDirectoryInput } from '../lib/readDropped'
 import { href } from '../lib/useHashRoute'
 
-const KIND_ICON: Record<Item['kind'], string> = { document: '📝', image: '🎨', file: '📄', music: '🎵' }
+const KIND_ICON: Record<Item['kind'], string> = { document: '📝', image: '🎨', file: '📄', music: '🎵', video: '🎬' }
 
 export function FoldersPage({ folderId }: { folderId: string | null }) {
   const { backend, userId, folders, items, loading, error, reload } = useVault()
