@@ -10,8 +10,9 @@ import {
   formatBytes,
   itemsIn,
   uniqueName,
-  uploadFileItem,
 } from '../data/vault'
+import { summarize, uploadPlan, type UploadPlan } from '../data/uploadTree'
+import { readDataTransfer, readDirectoryInput } from '../lib/readDropped'
 import { href } from '../lib/useHashRoute'
 
 const KIND_ICON: Record<Item['kind'], string> = { document: '📝', image: '🎨', file: '📄', music: '🎵' }
@@ -22,6 +23,7 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const folderInput = useRef<HTMLInputElement>(null)
 
   const current = folderId ? folders.find((f) => f.id === folderId) : null
   const subfolders = childFolders(folders, folderId)
@@ -76,23 +78,27 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
     })
   }
 
-  const upload = (list: FileList | File[]) => {
-    const picked = [...list]
-    if (!picked.length) return
+  const upload = (plan: UploadPlan) => {
+    const sum = summarize(plan)
+    if (sum.files === 0 && sum.folders === 0) return
+    // 폴더가 섞여 있거나 양이 많으면 먼저 확인한다
+    if (sum.folders > 0 || sum.files > 20) {
+      const lines = [
+        `폴더 ${sum.folders}개, 파일 ${sum.files}개 (${formatBytes(sum.bytes)})를 올릴까요?`,
+        sum.tooBig.length ? `50MB 보다 큰 파일 ${sum.tooBig.length}개는 건너뜁니다.` : '',
+      ].filter(Boolean)
+      if (!confirm(lines.join('\n'))) return
+    }
     run(async () => {
-      const taken = files.map((i) => i.title)
-      const failed: string[] = []
-      for (const [n, file] of picked.entries()) {
-        setStatus(`올리는 중 (${n + 1}/${picked.length}) ${file.name}`)
-        try {
-          const item = await uploadFileItem(backend, userId, file, folderId, taken)
-          taken.push(item.title)
-        } catch (e) {
-          failed.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`)
-        }
-      }
-      const ok = picked.length - failed.length
-      return failed.length ? `${ok}개 올림, ${failed.length}개 실패\n${failed.join('\n')}` : `${ok}개 파일을 올렸습니다.`
+      const r = await uploadPlan(backend, userId, plan, folderId, { folders, items }, (done, total, name) =>
+        setStatus(name ? `올리는 중 (${done + 1}/${total}) ${name}` : '마무리하는 중…'),
+      )
+      const parts = [r.folders ? `폴더 ${r.folders}개` : '', `파일 ${r.uploaded}개`].filter(Boolean)
+      const head = `${parts.join(', ')}를 올렸습니다.`
+      if (!r.failed.length) return head
+      const shown = r.failed.slice(0, 10).map((f) => `• ${f.name}: ${f.reason}`)
+      if (r.failed.length > 10) shown.push(`… 외 ${r.failed.length - 10}개`)
+      return `${head}\n실패 ${r.failed.length}개:\n${shown.join('\n')}`
     })
   }
 
@@ -120,7 +126,11 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
   const onDrop = (e: DragEvent) => {
     e.preventDefault()
     setDragging(false)
-    upload(e.dataTransfer.files)
+    if (busy) return
+    // readDataTransfer 는 await 전에 불러야 한다 (이벤트가 끝나면 내용이 사라짐)
+    readDataTransfer(e.dataTransfer)
+      .then(upload)
+      .catch((err) => setStatus(`읽기 실패: ${err instanceof Error ? err.message : String(err)}`))
   }
 
   if (folderId && !current && !loading) {
@@ -139,7 +149,10 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
         e.preventDefault()
         setDragging(true)
       }}
-      onDragLeave={() => setDragging(false)}
+      onDragLeave={(e) => {
+        // 안쪽 요소로 옮겨 갈 때는 무시 (테두리 깜빡임 방지)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+      }}
       onDrop={onDrop}
     >
       <nav className="breadcrumb">
@@ -159,13 +172,27 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
         <button className="secondary" onClick={() => fileInput.current?.click()} disabled={busy}>
           ⬆ 파일 올리기
         </button>
+        <button className="secondary" onClick={() => folderInput.current?.click()} disabled={busy}>
+          ⬆ 폴더 올리기
+        </button>
         <input
           ref={fileInput}
           type="file"
           multiple
           hidden
           onChange={(e) => {
-            if (e.target.files) upload(e.target.files)
+            if (e.target.files) upload({ dirs: [], files: [...e.target.files].map((file) => ({ path: [], file })) })
+            e.target.value = ''
+          }}
+        />
+        <input
+          ref={folderInput}
+          type="file"
+          hidden
+          // 폴더를 통째로 고르는 기능 (PC 브라우저)
+          {...{ webkitdirectory: '', directory: '' }}
+          onChange={(e) => {
+            if (e.target.files) upload(readDirectoryInput(e.target.files))
             e.target.value = ''
           }}
         />
@@ -177,7 +204,7 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
       {loading ? (
         <p className="muted">불러오는 중…</p>
       ) : subfolders.length === 0 && files.length === 0 ? (
-        <p className="muted empty">비어 있어요. 새 폴더를 만들거나 파일을 여기로 끌어다 놓으세요.</p>
+        <p className="muted empty">비어 있어요. 새 폴더를 만들거나, PC의 파일이나 폴더를 여기로 끌어다 놓으세요.</p>
       ) : (
         <ul className="list">
           {subfolders.map((f) => (
