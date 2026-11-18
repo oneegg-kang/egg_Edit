@@ -60,8 +60,8 @@ export interface VaultBackend {
   uploadFile(path: string, data: Blob, contentType?: string): Promise<void>
   downloadFile(path: string): Promise<Blob>
   deleteFiles(paths: string[]): Promise<void>
-  /** 잠깐 동안 쓸 수 있는 내려받기 주소. downloadName 을 주면 그 이름으로 저장된다. */
-  fileUrl(path: string, downloadName?: string): Promise<string>
+  /** 잠깐 동안 쓸 수 있는 내려받기 주소. downloadName 을 주면 그 이름으로 저장된다. (기본 10분 유효) */
+  fileUrl(path: string, downloadName?: string, expiresInSeconds?: number): Promise<string>
 
   /** 다른 기기에서 데이터가 바뀌면 onChange 를 부른다. 돌려받은 함수로 구독을 끝낸다. */
   subscribe(onChange: () => void): () => void

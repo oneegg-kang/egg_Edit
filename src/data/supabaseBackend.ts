@@ -53,8 +53,8 @@ export function createSupabaseBackend(sb: SupabaseClient): VaultBackend {
     async deleteFiles(paths) {
       if (paths.length) check(await bucket().remove(paths))
     },
-    async fileUrl(path, downloadName) {
-      const res = await bucket().createSignedUrl(path, 60 * 10, downloadName ? { download: downloadName } : undefined)
+    async fileUrl(path, downloadName, expiresInSeconds = 60 * 10) {
+      const res = await bucket().createSignedUrl(path, expiresInSeconds, downloadName ? { download: downloadName } : undefined)
       return check(res)!.signedUrl
     },
 

@@ -303,3 +303,68 @@ button.tool.on { background: var(--accent); color: var(--accent-text); }
   .docs-split.has-selection .doc-list { display: none; }
   .docs-split:not(.has-selection) .docs-detail { display: none; }
 }
+
+/* ── 도구 막대: 펜 색, 목록 모양, 표 ── */
+button.tool.pen { display: inline-grid; justify-items: center; gap: 1px; padding: 2px 8px 4px; }
+.pen-a { font-weight: 800; line-height: 1.1; padding: 0 3px; border-radius: 3px; color: var(--text); }
+.pen-bar { width: 18px; height: 4px; border-radius: 2px; }
+button.tool.list { font-size: 0.85rem; letter-spacing: -1px; }
+button.tool.caret { min-width: 18px; padding: 0 2px; font-size: 0.7rem; color: var(--muted); margin-left: -2px; }
+.menu.pop { position: fixed; right: auto; z-index: 40; max-width: calc(100vw - 16px); }
+.menu.pop button.checked { background: var(--bg); font-weight: 700; }
+.menu.pop button.checked::after { content: ' ✓'; color: var(--accent); }
+.palette { display: grid; gap: 6px; padding: 4px; }
+.palette small { color: var(--muted); }
+.swatches { display: grid; grid-template-columns: repeat(7, 26px); gap: 6px; }
+.menu > .palette, .menu > .table-picker { background: none; padding: 4px; }
+.menu > .palette:hover, .menu > .table-picker:hover { background: none; }
+button.swatch {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.12);
+}
+button.swatch.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.swatch.none { background: linear-gradient(135deg, var(--card) 45%, #d0453a 45% 55%, var(--card) 55%); }
+.table-picker { display: grid; gap: 6px; }
+.table-grid { display: grid; grid-template-columns: repeat(8, 20px); gap: 3px; }
+.table-grid button { width: 20px; height: 20px; padding: 0; border-radius: 3px; background: var(--bg); border: 1px solid var(--line); }
+.table-grid button.in { background: var(--accent); border-color: var(--accent); }
+.note .toolbar.table-bar { border-top: none; background: var(--bg); gap: 4px; }
+.table-bar button.tool { font-size: 0.8rem; font-weight: 600; }
+.table-bar-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); flex: none; margin-right: 4px; }
+.image-status { margin: 6px 16px 0; white-space: pre-line; font-size: 0.85rem; }
+
+/* ── 문서 안의 표 ── */
+.editor .tiptap .tableWrapper { overflow-x: auto; margin: 12px 0; }
+.editor .tiptap table { border-collapse: collapse; table-layout: fixed; width: 100%; margin: 0; overflow: hidden; }
+.editor .tiptap td, .editor .tiptap th {
+  border: 1px solid #c9c6bf; padding: 6px 8px; vertical-align: top; min-width: 60px; position: relative; box-sizing: border-box;
+}
+.editor .tiptap th { background: var(--bg); font-weight: 700; text-align: left; }
+.editor .tiptap td p, .editor .tiptap th p { margin: 0; }
+.editor .tiptap .selectedCell::after {
+  content: ''; position: absolute; inset: 0; background: rgb(232 163 23 / 0.18); pointer-events: none;
+}
+.editor .tiptap .column-resize-handle {
+  position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background: var(--accent); pointer-events: none;
+}
+.editor .tiptap.resize-cursor { cursor: col-resize; }
+
+/* ── 문서 안의 이미지 ── */
+.editor .tiptap img { max-width: 100%; height: auto; border-radius: 4px; display: block; }
+.editor .tiptap img.ProseMirror-selectednode, .editor .tiptap [data-resize-container].ProseMirror-selectednode img {
+  outline: 3px solid var(--accent); outline-offset: 2px;
+}
+.editor .tiptap [data-resize-handle] {
+  position: absolute; width: 10px; height: 10px; background: var(--card); border: 2px solid var(--accent); border-radius: 2px; z-index: 2;
+}
+.editor .tiptap [data-resize-container] { max-width: 100%; margin: 8px 0; }
+.editor .tiptap ul[data-list-style], .editor .tiptap ol[data-list-style] { padding-left: 1.6em; }
+
+/* PC 에서는 도구 막대를 여러 줄로 (옆으로 숨지 않게), 휴대폰에서는 옆으로 밀기 */
+@media (min-width: 801px) {
+  .note .toolbar { flex-wrap: wrap; overflow-x: visible; }
+}
+.editor .tiptap [data-resize-handle] { opacity: 0; transition: opacity 0.15s; }
+.editor .tiptap [data-resize-container]:hover [data-resize-handle],
+.editor .tiptap .ProseMirror-selectednode [data-resize-handle],
+.editor .tiptap [data-resize-state='true'] [data-resize-handle] { opacity: 1; }
+@media (hover: none) { .editor .tiptap [data-resize-handle] { opacity: 1; } } /* 휴대폰은 마우스 올리기가 없으니 항상 */

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import { Placeholder } from '@tiptap/extensions'
-import { TaskItem, TaskList } from '@tiptap/extension-list'
-import Highlight from '@tiptap/extension-highlight'
+import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import { editorExtensions } from '../editor/extensions'
+import { Toolbar } from '../editor/Toolbar'
+import { docForDisplay, docForSave, htmlForSave, imagePaths, isImageFile, uploadDocImage } from '../editor/images'
 import { useVault } from '../data/VaultProvider'
 import type { Item } from '../data/types'
 import { addTag, docContent, docTags, formatLastEdited, isNewerRemote, standaloneHtml, UNTITLED } from '../data/documents'
@@ -41,7 +40,7 @@ export function DocumentEditorPage({ id }: { id: string }) {
 }
 
 function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
-  const { backend, reload } = useVault()
+  const { backend, reload, userId } = useVault()
   const { toggleSidebar, sidebarOpen } = useShell()
   const [title, setTitle] = useState(item.title)
   const [tags, setTags] = useState(docTags(item))
@@ -56,6 +55,9 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
   const dirty = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const editorRef = useRef<Editor | null>(null)
+  const attachmentsRef = useRef(new Set<string>([...(docContent(item).attachments ?? []), ...imagePaths(docContent(item).doc)]))
+  const imageInput = useRef<HTMLInputElement>(null)
+  const [imageStatus, setImageStatus] = useState<string | null>(null)
 
   const save = useCallback(async () => {
     clearTimeout(timer.current)
@@ -66,7 +68,14 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     try {
       const saved = await backend.updateItem(item.id, {
         title: titleRef.current.trim(),
-        content: { doc: editor.getJSON(), html: editor.getHTML(), text: editor.getText(), tags: tagsRef.current },
+        content: {
+          doc: docForSave(editor.getJSON()),
+          html: htmlForSave(editor.getHTML()),
+          text: editor.getText(),
+          tags: tagsRef.current,
+          // 한 번이라도 넣었던 이미지는 모두 기록 (되돌리기로 다시 살아날 수 있으므로). 문서를 지울 때 함께 지운다.
+          attachments: [...attachmentsRef.current],
+        },
       })
       knownUpdatedAt.current = saved.updated_at
       setSaveState(dirty.current ? 'dirty' : 'saved')
@@ -85,20 +94,67 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
   }, [save])
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ link: { openOnClick: false, autolink: true, defaultProtocol: 'https' } }),
-      Placeholder.configure({ placeholder: '여기에 글을 쓰세요…' }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-        a11y: { checkboxLabel: (node, checked) => `할 일 ${checked ? '완료' : '미완료'}: ${node.textContent || '빈 항목'}` },
-      }),
-      Highlight,
-    ],
-    content: (docContent(item).doc as object | null) ?? '',
+    extensions: editorExtensions(),
+    content: '',
+    editable: false, // 이미지 주소를 받아 내용을 넣은 뒤에 쓸 수 있게 한다
     onUpdate: markDirty,
+    editorProps: {
+      // 이미지를 붙여 넣거나(Ctrl+V) 끌어다 놓으면 저장소에 올리고 넣는다
+      handlePaste: (_view, event) => {
+        const files = [...(event.clipboardData?.files ?? [])].filter(isImageFile)
+        if (!files.length) return false
+        insertImagesRef.current(files)
+        return true
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = [...(event.dataTransfer?.files ?? [])].filter(isImageFile)
+        if (moved || !files.length) return false
+        event.preventDefault()
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+        insertImagesRef.current(files, pos)
+        return true
+      },
+    },
   })
   editorRef.current = editor
+
+  // 처음 열 때: 문서 속 이미지의 볼 수 있는 주소를 받아서 내용을 넣는다
+  useEffect(() => {
+    if (!editor) return
+    let cancelled = false
+    docForDisplay(docContent(item).doc, backend).then((doc) => {
+      if (cancelled || editor.isDestroyed) return
+      editor.commands.setContent((doc as object | null) ?? '', { emitUpdate: false })
+      editor.setEditable(true)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor])
+
+  async function insertImages(files: File[], pos?: number) {
+    if (!editor) return
+    const failed: string[] = []
+    for (const [n, file] of files.entries()) {
+      setImageStatus(`이미지 올리는 중 (${n + 1}/${files.length}) ${file.name}`)
+      try {
+        const attrs = await uploadDocImage(backend, userId, item.id, file)
+        attachmentsRef.current.add(attrs.storagePath)
+        const chain = editor.chain().focus()
+        if (pos !== undefined) chain.setTextSelection(pos)
+        // 이미지 아래에 빈 줄을 두고 커서를 거기로 (이미지가 선택된 채로 남아 다음 입력에 덮어써지지 않게)
+        chain.insertContent([{ type: 'image', attrs }, { type: 'paragraph' }]).run()
+        pos = undefined // 여러 장이면 이어서 넣는다
+      } catch (e) {
+        failed.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    setImageStatus(failed.length ? `이미지 ${failed.length}개 실패\n${failed.join('\n')}` : null)
+    markDirty()
+  }
+  const insertImagesRef = useRef(insertImages)
+  insertImagesRef.current = insertImages
 
   // 화면을 떠나거나 창을 닫을 때 저장하지 못한 것이 있으면 바로 저장
   useEffect(() => {
@@ -126,9 +182,11 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.updated_at])
 
-  function loadRemote() {
+  async function loadRemote() {
     if (!editor) return
-    editor.commands.setContent((docContent(item).doc as object | null) ?? '', { emitUpdate: false })
+    const doc = await docForDisplay(docContent(item).doc, backend)
+    editor.commands.setContent((doc as object | null) ?? '', { emitUpdate: false })
+    for (const p of [...(docContent(item).attachments ?? []), ...imagePaths(docContent(item).doc)]) attachmentsRef.current.add(p)
     setTitle(item.title)
     titleRef.current = item.title
     setTags(docTags(item))
@@ -228,7 +286,20 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
 
       <div className="note-meta">{formatLastEdited(item.updated_at)}에 마지막으로 편집</div>
 
-      {editor && <Toolbar editor={editor} />}
+      {editor && <Toolbar editor={editor} onPickImages={() => imageInput.current?.click()} />}
+      <input
+        ref={imageInput}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])].filter(isImageFile)
+          e.target.value = ''
+          if (files.length) insertImages(files)
+        }}
+      />
+      {imageStatus && <p className="message image-status">{imageStatus}</p>}
 
       <div className="note-scroll">
         <div className="note-paper">
@@ -297,78 +368,5 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
         />
       </footer>
     </section>
-  )
-}
-
-function Toolbar({ editor }: { editor: Editor }) {
-  const s = useEditorState({
-    editor,
-    selector: ({ editor: e }) => ({
-      h1: e.isActive('heading', { level: 1 }),
-      h2: e.isActive('heading', { level: 2 }),
-      h3: e.isActive('heading', { level: 3 }),
-      bold: e.isActive('bold'),
-      italic: e.isActive('italic'),
-      underline: e.isActive('underline'),
-      strike: e.isActive('strike'),
-      highlight: e.isActive('highlight'),
-      bullet: e.isActive('bulletList'),
-      ordered: e.isActive('orderedList'),
-      task: e.isActive('taskList'),
-      quote: e.isActive('blockquote'),
-      code: e.isActive('codeBlock'),
-      link: e.isActive('link'),
-      canUndo: e.can().undo(),
-      canRedo: e.can().redo(),
-    }),
-  })
-  const c = () => editor.chain().focus()
-
-  const setLink = () => {
-    const prev = editor.getAttributes('link').href as string | undefined
-    const url = prompt('링크 주소 (비우면 링크 해제)', prev ?? 'https://')
-    if (url === null) return
-    if (url.trim() === '' || url.trim() === 'https://') c().extendMarkRange('link').unsetLink().run()
-    else c().extendMarkRange('link').setLink({ href: url.trim() }).run()
-  }
-
-  const B = ({ on, label, title, run, disabled }: { on?: boolean; label: string; title: string; run: () => void; disabled?: boolean }) => (
-    <button
-      type="button"
-      className={`tool ${on ? 'on' : ''}`}
-      title={title}
-      aria-label={title}
-      aria-pressed={on}
-      disabled={disabled}
-      onMouseDown={(e) => e.preventDefault()} // 편집기 선택 영역을 잃지 않도록
-      onClick={run}
-    >
-      {label}
-    </button>
-  )
-
-  return (
-    <div className="toolbar" role="toolbar" aria-label="서식">
-      <B label="↶" title="되돌리기" run={() => c().undo().run()} disabled={!s.canUndo} />
-      <B label="↷" title="다시 하기" run={() => c().redo().run()} disabled={!s.canRedo} />
-      <span className="sep" />
-      <B label="H1" title="큰 제목" on={s.h1} run={() => c().toggleHeading({ level: 1 }).run()} />
-      <B label="H2" title="중간 제목" on={s.h2} run={() => c().toggleHeading({ level: 2 }).run()} />
-      <B label="H3" title="작은 제목" on={s.h3} run={() => c().toggleHeading({ level: 3 }).run()} />
-      <span className="sep" />
-      <B label="B" title="굵게" on={s.bold} run={() => c().toggleBold().run()} />
-      <B label="I" title="기울임" on={s.italic} run={() => c().toggleItalic().run()} />
-      <B label="U" title="밑줄" on={s.underline} run={() => c().toggleUnderline().run()} />
-      <B label="S" title="취소선" on={s.strike} run={() => c().toggleStrike().run()} />
-      <B label="🖍" title="형광펜" on={s.highlight} run={() => c().toggleHighlight().run()} />
-      <B label="🔗" title="링크" on={s.link} run={setLink} />
-      <span className="sep" />
-      <B label="•" title="글머리 목록" on={s.bullet} run={() => c().toggleBulletList().run()} />
-      <B label="1." title="번호 목록" on={s.ordered} run={() => c().toggleOrderedList().run()} />
-      <B label="☑" title="체크리스트" on={s.task} run={() => c().toggleTaskList().run()} />
-      <B label="❝" title="인용" on={s.quote} run={() => c().toggleBlockquote().run()} />
-      <B label="</>" title="코드" on={s.code} run={() => c().toggleCodeBlock().run()} />
-      <B label="―" title="구분선" run={() => c().setHorizontalRule().run()} />
-    </div>
   )
 }

@@ -91,10 +91,20 @@ export async function uploadFileItem(
   }
 }
 
-/** 항목들과 그 파일을 지운다. */
+/**
+ * 항목이 Storage 에 가진 모든 파일: 본 파일(storage_path) + 딸린 파일(content.attachments, 예: 문서 속 이미지)
+ */
+export function filesOf(item: Item): string[] {
+  const attachments = Array.isArray(item.content.attachments)
+    ? item.content.attachments.filter((p): p is string => typeof p === 'string')
+    : []
+  return [...(item.storage_path ? [item.storage_path] : []), ...attachments]
+}
+
+/** 항목들과 그 파일(딸린 파일 포함)을 지운다. */
 export async function deleteItems(backend: VaultBackend, items: Item[]) {
   await backend.deleteItems(items.map((i) => i.id))
-  const paths = items.map((i) => i.storage_path).filter((p): p is string => Boolean(p))
+  const paths = items.flatMap(filesOf)
   // 파일 삭제가 실패해도 목록에서는 이미 사라졌으므로 사용자에게는 성공. (남은 파일은 용량만 차지)
   await backend.deleteFiles(paths).catch(() => {})
 }

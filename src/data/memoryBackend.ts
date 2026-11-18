@@ -87,7 +87,11 @@ export function createMemoryBackend(
       return b
     },
     deleteFiles: async (ps) => ps.forEach((p) => files.delete(p)),
-    fileUrl: async (p) => `memory://${p}`,
+    // 브라우저(데모 화면)에서는 실제로 보이는 blob 주소를, 테스트에서는 알아보기 쉬운 가짜 주소를
+    fileUrl: async (p) => {
+      const blob = files.get(p)
+      return typeof window !== 'undefined' && blob ? URL.createObjectURL(blob) : `memory://${p}`
+    },
 
     subscribe: (cb) => {
       listeners.add(cb)

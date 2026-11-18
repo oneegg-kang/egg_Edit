@@ -15,7 +15,8 @@
 import JSZip from 'jszip'
 import type { Folder, Item, VaultBackend } from '../data/types'
 import { docContent, docTitle, standaloneHtml } from '../data/documents'
-import { folderPath, uniqueName } from '../data/vault'
+import { filesOf, folderPath, uniqueName } from '../data/vault'
+import { VAULT_SCHEME } from '../editor/images'
 
 export const BACKUP_FORMAT = 'egg-edit-backup'
 export const BACKUP_VERSION = 1
@@ -53,11 +54,10 @@ export async function createBackup(backend: VaultBackend, onProgress: ProgressFn
   const [folders, items] = await Promise.all([backend.listFolders(), backend.listItems()])
 
   const zip = new JSZip()
-  const withFiles = items.filter((i) => i.storage_path)
+  const withFiles = items.flatMap((item) => filesOf(item).map((path) => ({ item, path })))
   const missing: string[] = []
 
-  for (const [n, item] of withFiles.entries()) {
-    const path = item.storage_path!
+  for (const [n, { item, path }] of withFiles.entries()) {
     onProgress(`파일 내려받는 중 (${n + 1}/${withFiles.length}) ${item.title || path}`)
     try {
       zip.file(`files/${path}`, await backend.downloadFile(path))
@@ -100,7 +100,10 @@ function addReadableDocuments(zip: JSZip, folders: Folder[], items: Item[]) {
     const name = uniqueName(`${safeFileName(docTitle(item))}.html`, names)
     names.push(name)
     taken.set(dir, names)
-    zip.file(`${dir}/${name}`, standaloneHtml(docTitle(item), docContent(item).html ?? ''))
+    // 문서 속 이미지는 ZIP 안의 files/ 를 가리키게 바꾼다 (압축을 풀면 그대로 보이도록)
+    const up = '../'.repeat(dir.split('/').length)
+    const html = (docContent(item).html ?? '').split(`src="${VAULT_SCHEME}`).join(`src="${up}files/`)
+    zip.file(`${dir}/${name}`, standaloneHtml(docTitle(item), html))
   }
 }
 
@@ -126,6 +129,18 @@ export function sortFoldersParentFirst(folders: Folder[]): Folder[] {
   }
   for (const f of folders) visit(f, new Set())
   return result
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  heic: 'image/heic', bmp: 'image/bmp', mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', pdf: 'application/pdf',
+}
+const guessMime = (path: string) => MIME_BY_EXT[path.split('.').pop()?.toLowerCase() ?? '']
+
+/** 내용(JSON) 안의 파일 경로들도 새 사용자 것으로 바꾼다 (문서 속 이미지 등) */
+function reassignContent(content: Record<string, unknown>, oldUserId: string, newUserId: string) {
+  if (oldUserId === newUserId) return content
+  return JSON.parse(JSON.stringify(content).split(`${oldUserId}/`).join(`${newUserId}/`)) as Record<string, unknown>
 }
 
 /** 다른 계정/프로젝트의 백업이라도 지금 사용자의 것으로 바꾼다. */
@@ -159,13 +174,14 @@ export async function restoreBackup(
   const items = await readJson<Item[]>('data/items.json')
 
   // 1) 파일 먼저 올린다. (항목이 가리킬 파일이 먼저 있어야 한다)
-  const withFiles = items.filter((i) => i.storage_path)
-  for (const [n, item] of withFiles.entries()) {
-    const entry = zip.file(`files/${item.storage_path}`)
+  const withFiles = items.flatMap((item) => filesOf(item).map((path) => ({ item, path })))
+  for (const [n, { item, path }] of withFiles.entries()) {
+    const entry = zip.file(`files/${path}`)
     if (!entry) continue
-    onProgress(`파일 올리는 중 (${n + 1}/${withFiles.length}) ${item.title || item.storage_path}`)
-    const newPath = reassignOwner(item.storage_path!, item.user_id, currentUserId)
-    await backend.uploadFile(newPath, await entry.async('blob'), item.mime_type ?? undefined)
+    onProgress(`파일 올리는 중 (${n + 1}/${withFiles.length}) ${item.title || path}`)
+    const newPath = reassignOwner(path, item.user_id, currentUserId)
+    const mime = path === item.storage_path ? (item.mime_type ?? undefined) : guessMime(path)
+    await backend.uploadFile(newPath, await entry.async('blob'), mime)
   }
 
   // 2) 폴더 (부모 먼저)
@@ -181,6 +197,7 @@ export async function restoreBackup(
       ...i,
       user_id: currentUserId,
       storage_path: i.storage_path ? reassignOwner(i.storage_path, i.user_id, currentUserId) : null,
+      content: reassignContent(i.content, i.user_id, currentUserId),
     })),
   )
 

@@ -13,6 +13,7 @@ export interface DocumentContent {
   html?: string
   text?: string
   tags?: string[]
+  attachments?: string[] // 문서 속 이미지 파일의 저장 경로들
 }
 
 export const UNTITLED = '제목 없음'
