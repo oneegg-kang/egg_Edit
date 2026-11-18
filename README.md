@@ -29,7 +29,7 @@ npm run dev
 
 | 명령 | 하는 일 |
 |---|---|
-| `npm run dev` | 개발 서버 실행 (코드를 고치면 바로 반영) |
+| `npm run dev` | 개발 서버 실행 (코드를 고치면 바로 반영). 주소 끝에 `?demo` 를 붙이면 로그인 없이 메모리 데이터로 시험 |
 | `npm test` | 자동 테스트 실행 |
 | `npm run lint` | 코드 검사 |
 | `npm run build` | 배포용 파일 만들기 (`dist/`) |
@@ -38,9 +38,11 @@ npm run dev
 
 ```
 src/
-  data/       데이터 형태(types.ts)와 Supabase 연결(supabaseBackend.ts)
+  data/       데이터 형태(types.ts), Supabase 연결(supabaseBackend.ts),
+              여러 단계 동작(vault.ts), 테스트/데모용 메모리 저장소(memoryBackend.ts)
   backup/     백업 / 복원
   auth/       로그인 상태 관리
+  lib/        Supabase 접속, 주소(#/...) 기반 화면 전환
   pages/      화면
 supabase/     데이터베이스 구조 (SQL)
 docs/         설계 문서

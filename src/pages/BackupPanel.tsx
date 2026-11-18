@@ -2,7 +2,15 @@ import { useRef, useState } from 'react'
 import { backupFileName, createBackup, restoreBackup } from '../backup/backup'
 import type { VaultBackend } from '../data/types'
 
-export function BackupPanel({ backend, userId }: { backend: VaultBackend; userId: string }) {
+export function BackupPanel({
+  backend,
+  userId,
+  onRestored,
+}: {
+  backend: VaultBackend
+  userId: string
+  onRestored?: () => void
+}) {
   const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -36,6 +44,7 @@ export function BackupPanel({ backend, userId }: { backend: VaultBackend; userId
         return '복원을 취소했습니다.'
       }
       const m = await restoreBackup(backend, file, userId, setStatus)
+      onRestored?.()
       return `복원 완료: 폴더 ${m.counts.folders}개, 항목 ${m.counts.items}개, 파일 ${m.counts.files}개 (${new Date(m.exported_at).toLocaleString()} 백업)`
     })
 

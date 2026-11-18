@@ -1,5 +1,8 @@
+import { useMemo } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
-import { isSupabaseConfigured } from './lib/supabase'
+import { createMemoryBackend } from './data/memoryBackend'
+import { createSupabaseBackend } from './data/supabaseBackend'
+import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 
@@ -22,13 +25,33 @@ function SetupNeeded() {
   )
 }
 
+function SignedIn() {
+  const { session } = useAuth()
+  const backend = useMemo(() => createSupabaseBackend(supabase!), [])
+  return (
+    <HomePage
+      backend={backend}
+      userId={session!.user.id}
+      email={session!.user.email ?? ''}
+      onSignOut={() => supabase!.auth.signOut()}
+    />
+  )
+}
+
 function Gate() {
   const { session, loading } = useAuth()
   if (loading) return <main className="center muted">불러오는 중…</main>
-  return session ? <HomePage /> : <LoginPage />
+  return session ? <SignedIn /> : <LoginPage />
+}
+
+/** 개발 서버에서 주소 끝에 ?demo 를 붙이면 서버 없이 메모리 데이터로 화면을 시험할 수 있다. */
+function Demo() {
+  const backend = useMemo(() => createMemoryBackend('demo').backend, [])
+  return <HomePage backend={backend} userId="demo" email="demo (메모리 저장)" onSignOut={() => location.assign('?')} />
 }
 
 export default function App() {
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('demo')) return <Demo />
   if (!isSupabaseConfigured) return <SetupNeeded />
   return (
     <AuthProvider>

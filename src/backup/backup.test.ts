@@ -1,32 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createBackup, restoreBackup, reassignOwner, sortFoldersParentFirst } from './backup'
-import type { Folder, Item, VaultBackend } from '../data/types'
+import type { Folder, Item } from '../data/types'
+import { createMemoryBackend } from '../data/memoryBackend'
 
 /** 테스트용 메모리 저장소 (실제 Supabase 대신) */
 function memoryBackend(folders: Folder[] = [], items: Item[] = [], files: Record<string, string> = {}) {
-  const state = {
-    folders: new Map(folders.map((f) => [f.id, f])),
-    items: new Map(items.map((i) => [i.id, i])),
-    files: new Map(Object.entries(files).map(([k, v]) => [k, new Blob([v])])),
-  }
-  const backend: VaultBackend = {
-    listFolders: async () => [...state.folders.values()],
-    listItems: async () => [...state.items.values()],
-    upsertFolders: async (fs) => {
-      for (const f of fs) {
-        if (f.parent_id && !state.folders.has(f.parent_id)) throw new Error('parent missing')
-        state.folders.set(f.id, f)
-      }
-    },
-    upsertItems: async (is) => is.forEach((i) => state.items.set(i.id, i)),
-    downloadFile: async (p) => {
-      const b = state.files.get(p)
-      if (!b) throw new Error('not found')
-      return b
-    },
-    uploadFile: async (p, d) => void state.files.set(p, d),
-  }
-  return { backend, state }
+  return createMemoryBackend('me', { folders, items, files })
 }
 
 const now = '2026-11-17T00:00:00.000Z'

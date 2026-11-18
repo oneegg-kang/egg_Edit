@@ -30,7 +30,7 @@ code { background: var(--line); padding: 0 0.3em; border-radius: 4px; }
 .page { max-width: 960px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 
 .card {
   background: var(--card);
@@ -60,3 +60,29 @@ button {
 button:disabled { opacity: 0.5; cursor: default; }
 button.secondary { background: var(--line); color: var(--text); }
 button.link { background: none; color: var(--muted); font-weight: normal; padding: 4px; }
+
+/* ── 1단계: 홈 카드, 폴더 화면 ── */
+a { color: inherit; }
+.topbar h1 a { text-decoration: none; }
+a.card { text-decoration: none; }
+.feature.clickable { cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.feature.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+.feature.disabled { opacity: 0.6; }
+
+.breadcrumb { font-size: 1.05rem; overflow-wrap: anywhere; }
+.breadcrumb a { text-decoration: none; font-weight: 600; }
+.breadcrumb a:hover { text-decoration: underline; }
+
+.dropzone { min-height: 300px; align-content: start; }
+.dropzone.dragging { border: 2px dashed var(--accent); }
+.empty { padding: 32px 0; text-align: center; }
+
+.list { list-style: none; margin: 0; padding: 0; display: grid; }
+.list li {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 4px; border-top: 1px solid var(--line);
+}
+.list .name { text-decoration: none; overflow-wrap: anywhere; min-width: 0; flex: 1 1 200px; }
+a.name:hover { text-decoration: underline; }
+.list .actions { display: flex; gap: 4px; }
+button.link.danger { color: #d0453a; }

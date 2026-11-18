@@ -4,42 +4,67 @@ import type { Folder, Item, VaultBackend } from './types'
 
 /** Supabase 로 VaultBackend 를 구현한다. Supabase 에 의존하는 코드는 가능한 한 여기에만 둔다. */
 export function createSupabaseBackend(sb: SupabaseClient): VaultBackend {
+  const check = <T,>({ data, error }: { data: T; error: unknown }): T => {
+    if (error) throw error
+    return data
+  }
+  const bucket = () => sb.storage.from(STORAGE_BUCKET)
+
   return {
     async listFolders() {
-      const { data, error } = await sb.from('folders').select('*').order('created_at')
-      if (error) throw error
-      return data as Folder[]
+      return check(await sb.from('folders').select('*').order('name')) as Folder[]
+    },
+    async createFolder(name, parentId) {
+      return check(await sb.from('folders').insert({ name, parent_id: parentId }).select().single()) as Folder
+    },
+    async updateFolder(id, patch) {
+      check(await sb.from('folders').update(patch).eq('id', id))
+    },
+    async deleteFolders(ids) {
+      if (ids.length) check(await sb.from('folders').delete().in('id', ids))
     },
 
     async listItems() {
-      const { data, error } = await sb.from('items').select('*').order('created_at')
-      if (error) throw error
-      return data as Item[]
+      return check(await sb.from('items').select('*').order('title')) as Item[]
+    },
+    async createItem(item) {
+      return check(await sb.from('items').insert(item).select().single()) as Item
+    },
+    async updateItem(id, patch) {
+      check(await sb.from('items').update(patch).eq('id', id))
+    },
+    async deleteItems(ids) {
+      if (ids.length) check(await sb.from('items').delete().in('id', ids))
     },
 
     async upsertFolders(folders) {
-      if (folders.length === 0) return
-      const { error } = await sb.from('folders').upsert(folders)
-      if (error) throw error
+      if (folders.length) check(await sb.from('folders').upsert(folders))
     },
-
     async upsertItems(items) {
-      if (items.length === 0) return
-      const { error } = await sb.from('items').upsert(items)
-      if (error) throw error
-    },
-
-    async downloadFile(path) {
-      const { data, error } = await sb.storage.from(STORAGE_BUCKET).download(path)
-      if (error) throw error
-      return data
+      if (items.length) check(await sb.from('items').upsert(items))
     },
 
     async uploadFile(path, data, contentType) {
-      const { error } = await sb.storage
-        .from(STORAGE_BUCKET)
-        .upload(path, data, { upsert: true, contentType })
-      if (error) throw error
+      check(await bucket().upload(path, data, { upsert: true, contentType }))
+    },
+    async downloadFile(path) {
+      return check(await bucket().download(path)) as Blob
+    },
+    async deleteFiles(paths) {
+      if (paths.length) check(await bucket().remove(paths))
+    },
+    async fileUrl(path, downloadName) {
+      const res = await bucket().createSignedUrl(path, 60 * 10, downloadName ? { download: downloadName } : undefined)
+      return check(res)!.signedUrl
+    },
+
+    subscribe(onChange) {
+      const channel = sb
+        .channel(`vault-${crypto.randomUUID()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'folders' }, onChange)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, onChange)
+        .subscribe()
+      return () => void sb.removeChannel(channel)
     },
   }
 }
