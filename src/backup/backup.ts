@@ -17,6 +17,7 @@ import type { Folder, Item, VaultBackend } from '../data/types'
 import { docContent, docTitle, standaloneHtml } from '../data/documents'
 import { filesOf, folderPath, uniqueName } from '../data/vault'
 import { VAULT_SCHEME } from '../editor/images'
+import { musicListHtml, musicOf } from '../data/music'
 
 export const BACKUP_FORMAT = 'egg-edit-backup'
 export const BACKUP_VERSION = 1
@@ -44,6 +45,7 @@ const README = `egg_Edit 백업 파일
   files/             storage_path 와 같은 경로에 실제 파일이 들어 있습니다.
   documents/         문서를 앱에서와 같은 폴더 구조로 저장한 HTML 파일입니다.
                      더블클릭하면 브라우저로 바로 읽을 수 있습니다. (읽기용 사본)
+  music/             음악 목록.html: 저장한 음악 파일과 링크 목록 (읽기용 사본)
 
 복원: egg_Edit 앱의 [백업 복원] 에서 이 ZIP 을 선택하세요.
 `
@@ -76,6 +78,8 @@ export async function createBackup(backend: VaultBackend, onProgress: ProgressFn
   }
 
   addReadableDocuments(zip, folders, items)
+  const tracks = musicOf(items)
+  if (tracks.length) zip.file('music/음악 목록.html', musicListHtml(tracks))
   zip.file('README.txt', README)
   zip.file('manifest.json', JSON.stringify(manifest, null, 2))
   zip.file('data/folders.json', JSON.stringify(folders, null, 2))

@@ -70,6 +70,7 @@ export async function uploadFileItem(
   folderId: string | null,
   takenNames: string[],
   kind: ItemKind = 'file',
+  extra: { title?: string; content?: Record<string, unknown> } = {},
 ): Promise<Item> {
   const id = crypto.randomUUID()
   const path = storagePathFor(userId, id, file.name)
@@ -80,7 +81,8 @@ export async function uploadFileItem(
       id,
       folder_id: folderId,
       kind,
-      title: uniqueName(file.name, takenNames),
+      title: extra.title ?? uniqueName(file.name, takenNames),
+      content: extra.content ?? {},
       storage_path: path,
       mime_type: contentType,
       size_bytes: file.size,
