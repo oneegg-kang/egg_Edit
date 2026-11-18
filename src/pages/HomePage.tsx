@@ -8,11 +8,13 @@ import { DocumentsPage } from './DocumentsPage'
 import { AppShell, MobileBar } from './AppShell'
 import { MusicPage } from './MusicPage'
 import { VideoPage } from './VideoPage'
+import { ImagesPage } from './ImagesPage'
+import { ImageEditorPage } from './ImageEditor'
 import { PlayerProvider } from '../player/Player'
 
 const FEATURES = [
   { icon: '📝', title: '문서', desc: '글 작성, 수정, 삭제', link: href('docs'), stage: null },
-  { icon: '🎨', title: '이미지', desc: '그림 그리기와 편집', link: null, stage: '4단계' },
+  { icon: '🎨', title: '이미지', desc: '그림 그리기와 사진 편집', link: href('images'), stage: null },
   { icon: '📁', title: '폴더', desc: '중요한 파일 보관', link: href('folders'), stage: null },
   { icon: '🎵', title: '음악', desc: '음악 저장과 링크', link: href('music'), stage: null },
   { icon: '🎬', title: '동영상', desc: '동영상 올리기와 유튜브', link: href('videos'), stage: null },
@@ -61,6 +63,7 @@ function Page({ title, children }: { title: string; children: ReactNode }) {
 function Routes() {
   const [section, id] = useHashRoute()
   if (section === 'docs') return <DocumentsPage selectedId={id ?? null} />
+  if (section === 'images') return id ? <ImageEditorPage id={id} /> : <div className="page"><ImagesPage /></div>
   if (section === 'videos') return <div className="page"><VideoPage /></div>
   if (section === 'music') return <div className="page"><MusicPage /></div>
   if (section === 'folders') return <Page title="파일"><FoldersPage folderId={id ?? null} /></Page>

@@ -241,6 +241,11 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
                 <a className="name" href={href('docs', i.id)}>
                   {KIND_ICON[i.kind]} {docTitle(i)}
                 </a>
+              ) : i.kind === 'image' ? (
+                <a className="name" href={href('images', i.id)}>
+                  {KIND_ICON[i.kind]} {i.title}
+                  <small className="muted"> {formatBytes(i.size_bytes)}</small>
+                </a>
               ) : (
                 <span className="name">
                   {KIND_ICON[i.kind]} {i.title}
