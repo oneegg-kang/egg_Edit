@@ -31,7 +31,7 @@ export function createSupabaseBackend(sb: SupabaseClient): VaultBackend {
       return check(await sb.from('items').insert(item).select().single()) as Item
     },
     async updateItem(id, patch) {
-      check(await sb.from('items').update(patch).eq('id', id))
+      return check(await sb.from('items').update(patch).eq('id', id).select().single()) as Item
     },
     async deleteItems(ids) {
       if (ids.length) check(await sb.from('items').delete().in('id', ids))

@@ -7,12 +7,15 @@
 //   ├── manifest.json       형식 이름/버전, 만든 시각, 개수
 //   ├── data/folders.json   폴더 구조 전체
 //   ├── data/items.json     문서·이미지·파일·음악 항목 전체 (글 내용, 링크 포함)
-//   └── files/<경로>        실제 파일들 (그림, 첨부 파일, 음악 파일)
+//   ├── files/<경로>        실제 파일들 (그림, 첨부 파일, 음악 파일)
+//   └── documents/…         문서를 폴더 구조 그대로 HTML 로 (브라우저로 바로 열림)
 //
 // 복원할 때는 같은 계정이든, 새로 만든 Supabase 프로젝트든 상관없이 지금 로그인한 계정으로 옮겨 담는다.
 
 import JSZip from 'jszip'
 import type { Folder, Item, VaultBackend } from '../data/types'
+import { docContent, docTitle, standaloneHtml } from '../data/documents'
+import { folderPath, uniqueName } from '../data/vault'
 
 export const BACKUP_FORMAT = 'egg-edit-backup'
 export const BACKUP_VERSION = 1
@@ -38,6 +41,8 @@ const README = `egg_Edit 백업 파일
                      folder_id 로 들어 있는 폴더를, storage_path 로 실제 파일을 가리킵니다.
                      문서의 글 내용과 음악 링크는 content 안에 있습니다.
   files/             storage_path 와 같은 경로에 실제 파일이 들어 있습니다.
+  documents/         문서를 앱에서와 같은 폴더 구조로 저장한 HTML 파일입니다.
+                     더블클릭하면 브라우저로 바로 읽을 수 있습니다. (읽기용 사본)
 
 복원: egg_Edit 앱의 [백업 복원] 에서 이 ZIP 을 선택하세요.
 `
@@ -70,6 +75,7 @@ export async function createBackup(backend: VaultBackend, onProgress: ProgressFn
     missing_files: missing,
   }
 
+  addReadableDocuments(zip, folders, items)
   zip.file('README.txt', README)
   zip.file('manifest.json', JSON.stringify(manifest, null, 2))
   zip.file('data/folders.json', JSON.stringify(folders, null, 2))
@@ -77,6 +83,24 @@ export async function createBackup(backend: VaultBackend, onProgress: ProgressFn
 
   onProgress('ZIP 파일로 묶는 중…')
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+}
+
+/** 파일 이름에 쓸 수 없는 글자를 바꾼다. (Windows 기준이 가장 엄격하다) */
+export const safeFileName = (name: string) =>
+  name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/[. ]+$/, '').slice(0, 120) || '_'
+
+/** 문서를 documents/<폴더 경로>/<제목>.html 로 넣는다. 복원에는 쓰지 않는 읽기용 사본이다. */
+function addReadableDocuments(zip: JSZip, folders: Folder[], items: Item[]) {
+  const taken = new Map<string, string[]>()
+  for (const item of items) {
+    if (item.kind !== 'document') continue
+    const dir = ['documents', ...folderPath(folders, item.folder_id).map((f) => safeFileName(f.name))].join('/')
+    const names = taken.get(dir) ?? []
+    const name = uniqueName(`${safeFileName(docTitle(item))}.html`, names)
+    names.push(name)
+    taken.set(dir, names)
+    zip.file(`${dir}/${name}`, standaloneHtml(docTitle(item), docContent(item).html ?? ''))
+  }
 }
 
 export function backupFileName(date = new Date()): string {

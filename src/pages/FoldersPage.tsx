@@ -12,6 +12,7 @@ import {
   uniqueName,
 } from '../data/vault'
 import { summarize, uploadPlan, type UploadPlan } from '../data/uploadTree'
+import { createDocument, docTitle } from '../data/documents'
 import { readDataTransfer, readDirectoryInput } from '../lib/readDropped'
 import { href } from '../lib/useHashRoute'
 
@@ -102,6 +103,12 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
     })
   }
 
+  const newDocument = () =>
+    run(async () => {
+      const doc = await createDocument(backend, folderId)
+      window.location.hash = href('docs', doc.id)
+    })
+
   const download = (item: Item) =>
     run(async () => {
       const url = await backend.fileUrl(item.storage_path!, item.title)
@@ -112,14 +119,17 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
     const name = askName('이름 바꾸기', item.title)
     if (!name || name === item.title) return
     const siblings = files.filter((i) => i.id !== item.id).map((i) => i.title)
-    run(() => backend.updateItem(item.id, { title: uniqueName(name, siblings) }))
+    run(async () => {
+      await backend.updateItem(item.id, { title: uniqueName(name, siblings) })
+    })
   }
 
   const removeItem = (item: Item) => {
-    if (!confirm(`'${item.title}' 을(를) 삭제할까요? 삭제하면 되돌릴 수 없습니다.`)) return
+    const name = item.kind === 'document' ? docTitle(item) : item.title
+    if (!confirm(`'${name}' 을(를) 삭제할까요? 삭제하면 되돌릴 수 없습니다.`)) return
     run(async () => {
       await deleteItems(backend, [item])
-      return `'${item.title}' 을(를) 삭제했습니다.`
+      return `'${name}' 을(를) 삭제했습니다.`
     })
   }
 
@@ -168,6 +178,9 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
       <div className="row">
         <button onClick={newFolder} disabled={busy}>
           + 새 폴더
+        </button>
+        <button className="secondary" onClick={newDocument} disabled={busy}>
+          + 새 문서
         </button>
         <button className="secondary" onClick={() => fileInput.current?.click()} disabled={busy}>
           ⬆ 파일 올리기
@@ -224,10 +237,16 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
           ))}
           {files.map((i) => (
             <li key={i.id}>
-              <span className="name">
-                {KIND_ICON[i.kind]} {i.title}
-                <small className="muted"> {formatBytes(i.size_bytes)}</small>
-              </span>
+              {i.kind === 'document' ? (
+                <a className="name" href={href('docs', i.id)}>
+                  {KIND_ICON[i.kind]} {docTitle(i)}
+                </a>
+              ) : (
+                <span className="name">
+                  {KIND_ICON[i.kind]} {i.title}
+                  <small className="muted"> {formatBytes(i.size_bytes)}</small>
+                </span>
+              )}
               <span className="actions">
                 {i.storage_path && (
                   <button className="link" onClick={() => download(i)} disabled={busy}>

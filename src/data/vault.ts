@@ -118,3 +118,13 @@ export function formatBytes(n: number | null): string {
   }
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[u]}`
 }
+
+/** 오늘이면 시각, 아니면 날짜 */
+export function formatWhen(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const sameDay = d.toDateString() === now.toDateString()
+  return sameDay
+    ? d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('ko-KR', { year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric', month: 'short', day: 'numeric' })
+}

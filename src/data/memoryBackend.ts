@@ -62,8 +62,10 @@ export function createMemoryBackend(
     updateItem: async (id, patch) => {
       const i = items.get(id)
       if (!i) throw new Error('item not found')
-      items.set(id, { ...i, ...patch, updated_at: now() })
+      const updated = { ...i, ...patch, updated_at: now() }
+      items.set(id, updated)
       changed()
+      return updated
     },
     deleteItems: async (ids) => {
       ids.forEach((id) => items.delete(id))

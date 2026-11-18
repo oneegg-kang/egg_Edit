@@ -3,9 +3,11 @@ import type { VaultBackend } from '../data/types'
 import { href, useHashRoute } from '../lib/useHashRoute'
 import { BackupPanel } from './BackupPanel'
 import { FoldersPage } from './FoldersPage'
+import { DocumentsPage } from './DocumentsPage'
+import { DocumentEditorPage } from './DocumentEditor'
 
 const FEATURES = [
-  { icon: '📝', title: '문서', desc: '글 작성, 수정, 삭제', link: null, stage: '2단계' },
+  { icon: '📝', title: '문서', desc: '글 작성, 수정, 삭제', link: href('docs'), stage: null },
   { icon: '🎨', title: '이미지', desc: '그림 그리기와 편집', link: null, stage: '4단계' },
   { icon: '📁', title: '폴더', desc: '중요한 파일 보관', link: href('folders'), stage: null },
   { icon: '🎵', title: '음악', desc: '음악 저장과 링크', link: null, stage: '3단계' },
@@ -44,6 +46,7 @@ function Dashboard() {
 function Routes() {
   const [section, id] = useHashRoute()
   if (section === 'folders') return <FoldersPage folderId={id ?? null} />
+  if (section === 'docs') return id ? <DocumentEditorPage id={id} /> : <DocumentsPage />
   return <Dashboard />
 }
 

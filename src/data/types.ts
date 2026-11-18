@@ -48,7 +48,8 @@ export interface VaultBackend {
   // 항목
   listItems(): Promise<Item[]>
   createItem(item: NewItem & { id?: string }): Promise<Item>
-  updateItem(id: string, patch: ItemPatch): Promise<void>
+  /** 바꾼 뒤의 항목을 돌려준다 (updated_at 으로 다른 기기 수정 여부를 알 수 있도록) */
+  updateItem(id: string, patch: ItemPatch): Promise<Item>
   deleteItems(ids: string[]): Promise<void>
 
   // 백업 복원용: id 가 같으면 덮어쓰고, 없으면 새로 만든다.
