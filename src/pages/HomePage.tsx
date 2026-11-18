@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { VaultProvider, useVault } from '../data/VaultProvider'
 import type { VaultBackend } from '../data/types'
 import { href, useHashRoute } from '../lib/useHashRoute'
@@ -5,6 +6,7 @@ import { BackupPanel } from './BackupPanel'
 import { FoldersPage } from './FoldersPage'
 import { DocumentsPage } from './DocumentsPage'
 import { DocumentEditorPage } from './DocumentEditor'
+import { AppShell, MobileBar } from './AppShell'
 
 const FEATURES = [
   { icon: '📝', title: '문서', desc: '글 작성, 수정, 삭제', link: href('docs'), stage: null },
@@ -43,11 +45,22 @@ function Dashboard() {
   )
 }
 
+/** 편집 화면을 뺀 나머지 화면은 가운데 정렬된 페이지 안에 둔다 */
+function Page({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="page">
+      <MobileBar title={title} />
+      {children}
+    </div>
+  )
+}
+
 function Routes() {
   const [section, id] = useHashRoute()
-  if (section === 'folders') return <FoldersPage folderId={id ?? null} />
-  if (section === 'docs') return id ? <DocumentEditorPage id={id} /> : <DocumentsPage />
-  return <Dashboard />
+  if (section === 'docs' && id) return <DocumentEditorPage id={id} />
+  if (section === 'docs') return <Page title="문서"><DocumentsPage /></Page>
+  if (section === 'folders') return <Page title="파일"><FoldersPage folderId={id ?? null} /></Page>
+  return <Page title="egg_Edit"><Dashboard /></Page>
 }
 
 export function HomePage({
@@ -63,20 +76,9 @@ export function HomePage({
 }) {
   return (
     <VaultProvider backend={backend} userId={userId}>
-      <main className="page">
-        <header className="topbar">
-          <h1>
-            <a href="#/">egg_Edit</a>
-          </h1>
-          <div className="row">
-            <span className="muted">{email}</span>
-            <button className="secondary" onClick={onSignOut}>
-              로그아웃
-            </button>
-          </div>
-        </header>
+      <AppShell email={email} onSignOut={onSignOut}>
         <Routes />
-      </main>
+      </AppShell>
     </VaultProvider>
   )
 }

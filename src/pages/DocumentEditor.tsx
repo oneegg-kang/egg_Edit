@@ -6,9 +6,11 @@ import { TaskItem, TaskList } from '@tiptap/extension-list'
 import Highlight from '@tiptap/extension-highlight'
 import { useVault } from '../data/VaultProvider'
 import type { Item } from '../data/types'
-import { docContent, isNewerRemote, UNTITLED } from '../data/documents'
+import { addTag, docContent, docTags, formatLastEdited, isNewerRemote, standaloneHtml, UNTITLED } from '../data/documents'
+import { safeFileName } from '../backup/backup'
 import { deleteItems, folderPath } from '../data/vault'
 import { href } from '../lib/useHashRoute'
+import { MobileBar, useShell } from './AppShell'
 
 const SAVE_DELAY_MS = 800
 
@@ -25,10 +27,13 @@ export function DocumentEditorPage({ id }: { id: string }) {
   const item = items.find((i) => i.id === id)
   if (!item) {
     return (
-      <section className="card">
-        <p className="muted">{loading ? '불러오는 중…' : '문서를 찾을 수 없습니다. 다른 기기에서 삭제되었을 수 있어요.'}</p>
-        <a href={href('docs')}>문서 목록으로</a>
-      </section>
+      <div className="page">
+        <MobileBar title="문서" />
+        <section className="card">
+          <p className="muted">{loading ? '불러오는 중…' : '문서를 찾을 수 없습니다. 다른 기기에서 삭제되었을 수 있어요.'}</p>
+          <a href={href('docs')}>문서 목록으로</a>
+        </section>
+      </div>
     )
   }
   // key: 다른 문서로 옮겨 가면 편집기를 새로 만든다
@@ -37,11 +42,16 @@ export function DocumentEditorPage({ id }: { id: string }) {
 
 function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
   const { backend, reload } = useVault()
+  const { toggleSidebar, sidebarOpen } = useShell()
   const [title, setTitle] = useState(item.title)
+  const [tags, setTags] = useState(docTags(item))
+  const [tagDraft, setTagDraft] = useState('')
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [remoteChanged, setRemoteChanged] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const titleRef = useRef(item.title)
+  const tagsRef = useRef(docTags(item))
   const knownUpdatedAt = useRef(item.updated_at) // 내가 마지막으로 저장/불러온 시각
   const dirty = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -56,7 +66,7 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     try {
       const saved = await backend.updateItem(item.id, {
         title: titleRef.current.trim(),
-        content: { doc: editor.getJSON(), html: editor.getHTML(), text: editor.getText() },
+        content: { doc: editor.getJSON(), html: editor.getHTML(), text: editor.getText(), tags: tagsRef.current },
       })
       knownUpdatedAt.current = saved.updated_at
       setSaveState(dirty.current ? 'dirty' : 'saved')
@@ -121,6 +131,8 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     editor.commands.setContent((docContent(item).doc as object | null) ?? '', { emitUpdate: false })
     setTitle(item.title)
     titleRef.current = item.title
+    setTags(docTags(item))
+    tagsRef.current = docTags(item)
     knownUpdatedAt.current = item.updated_at
     dirty.current = false
     clearTimeout(timer.current)
@@ -128,8 +140,20 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     setRemoteChanged(false)
   }
 
+  function changeTags(next: string[]) {
+    setTags(next)
+    tagsRef.current = next
+    markDirty()
+  }
+
+  function commitTagDraft() {
+    if (tagDraft.trim()) changeTags(addTag(tags, tagDraft))
+    setTagDraft('')
+  }
+
   async function remove() {
-    if (!confirm(`'${item.title || UNTITLED}' 문서를 삭제할까요? 삭제하면 되돌릴 수 없습니다.`)) return
+    setMenuOpen(false)
+    if (!confirm(`'${title.trim() || UNTITLED}' 문서를 삭제할까요? 삭제하면 되돌릴 수 없습니다.`)) return
     dirty.current = false
     clearTimeout(timer.current)
     await deleteItems(backend, [item])
@@ -137,54 +161,138 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     reload()
   }
 
+  function downloadHtml() {
+    setMenuOpen(false)
+    if (!editor) return
+    const name = title.trim() || UNTITLED
+    const blob = new Blob([standaloneHtml(name, editor.getHTML())], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${safeFileName(name)}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <section className="card editor-card">
-      <nav className="breadcrumb">
-        <a href={href('docs')}>📝 문서</a>
-        {item.folder_id && (
-          <>
-            {' · '}
-            <a href={href('folders', item.folder_id)}>📁 {path.join(' / ')}</a>
-          </>
-        )}
-      </nav>
-
-      <div className="row editor-head">
-        <input
-          className="title-input"
-          value={title}
-          placeholder={UNTITLED}
-          onChange={(e) => {
-            setTitle(e.target.value)
-            titleRef.current = e.target.value
-            markDirty()
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              if (!editor) return
-              editor.view.focus() // 바로 이어서 치는 글자가 본문으로 가도록 즉시 옮긴다
-              editor.commands.focus('start')
-            }
-          }}
-        />
-        <span className={`save-state ${saveState}`}>{SAVE_LABEL[saveState]}</span>
-        <button className="link danger" onClick={remove}>
-          삭제
+    <section className="note">
+      <header className="note-top">
+        <button
+          className="icon-btn"
+          onClick={toggleSidebar}
+          title={sidebarOpen ? '메뉴 접기 (넓게 보기)' : '메뉴 펼치기'}
+          aria-label={sidebarOpen ? '메뉴 접기' : '메뉴 펼치기'}
+        >
+          {sidebarOpen ? '⤢' : '☰'}
         </button>
-      </div>
-
-      {remoteChanged && (
-        <p className="message">
-          다른 기기에서 이 문서가 수정되었어요. 지금 쓰는 내용을 저장하면 그쪽 내용을 덮어씁니다.{' '}
-          <button className="link" onClick={loadRemote}>
-            다른 기기 내용 불러오기
+        <span className="vsep" />
+        <nav className="note-crumb" aria-label="위치">
+          {item.folder_id ? (
+            <a href={href('folders', item.folder_id)} title={path.join(' / ')}>
+              📒 {path[path.length - 1]}
+            </a>
+          ) : (
+            <a href={href('docs')}>📝 문서</a>
+          )}
+          <span className="crumb-sep">›</span>
+          <span className="crumb-current">📄 {title.trim() || UNTITLED}</span>
+        </nav>
+        <span className={`save-state ${saveState}`}>{SAVE_LABEL[saveState]}</span>
+        <div className="menu-wrap">
+          <button className="icon-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="더 보기" aria-expanded={menuOpen}>
+            ⋯
           </button>
-        </p>
-      )}
+          {menuOpen && (
+            <>
+              <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="menu" role="menu">
+                {item.folder_id && (
+                  <a role="menuitem" href={href('folders', item.folder_id)}>
+                    📒 폴더 열기
+                  </a>
+                )}
+                <button role="menuitem" onClick={downloadHtml}>
+                  ⬇ HTML로 내려받기
+                </button>
+                <button role="menuitem" className="danger" onClick={remove}>
+                  🗑 삭제
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="note-meta">{formatLastEdited(item.updated_at)}에 마지막으로 편집</div>
 
       {editor && <Toolbar editor={editor} />}
-      <EditorContent editor={editor} className="editor" />
+
+      <div className="note-scroll">
+        <div className="note-paper">
+          {remoteChanged && (
+            <p className="message">
+              다른 기기에서 이 문서가 수정되었어요. 지금 쓰는 내용을 저장하면 그쪽 내용을 덮어씁니다.{' '}
+              <button className="link" onClick={loadRemote}>
+                다른 기기 내용 불러오기
+              </button>
+            </p>
+          )}
+          <input
+            className="note-title"
+            value={title}
+            placeholder={UNTITLED}
+            aria-label="제목"
+            onChange={(e) => {
+              setTitle(e.target.value)
+              titleRef.current = e.target.value
+              markDirty()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (!editor) return
+                editor.view.focus() // 바로 이어서 치는 글자가 본문으로 가도록 즉시 옮긴다
+                editor.commands.focus('start')
+              }
+            }}
+          />
+          <EditorContent editor={editor} className="editor" />
+        </div>
+      </div>
+
+      <footer className="note-tags">
+        <span aria-hidden>🏷</span>
+        {tags.map((t) => (
+          <span key={t} className="tag">
+            #{t}
+            <button onClick={() => changeTags(tags.filter((x) => x !== t))} aria-label={`태그 ${t} 지우기`}>
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          className="tag-input"
+          value={tagDraft}
+          placeholder="태그 추가"
+          aria-label="태그 추가"
+          onChange={(e) => {
+            // 쉼표를 치면 바로 태그로
+            if (e.target.value.endsWith(',')) {
+              changeTags(addTag(tags, e.target.value.slice(0, -1)))
+              setTagDraft('')
+            } else setTagDraft(e.target.value)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              commitTagDraft()
+            } else if (e.key === 'Backspace' && !tagDraft && tags.length) {
+              changeTags(tags.slice(0, -1))
+            }
+          }}
+          onBlur={commitTagDraft}
+        />
+      </footer>
     </section>
   )
 }

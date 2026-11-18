@@ -4,6 +4,7 @@
 //   doc  : 편집기(TipTap)용 JSON. 앱은 이것으로 다시 연다.
 //   html : 같은 내용의 HTML. 앱 없이도 브라우저로 열 수 있다. (백업, 다른 앱으로 옮기기)
 //   text : 글자만. 목록 미리 보기와 검색용.
+//   tags : 태그 목록 (예: ["여행", "시"])
 
 import type { Item, VaultBackend } from './types'
 
@@ -11,11 +12,27 @@ export interface DocumentContent {
   doc?: unknown
   html?: string
   text?: string
+  tags?: string[]
 }
 
 export const UNTITLED = '제목 없음'
 
 export const docContent = (item: Item): DocumentContent => item.content as DocumentContent
+
+export const docTags = (item: Item): string[] => docContent(item).tags ?? []
+
+/** 태그 정리: 앞뒤 공백과 # 을 빼고, 비었거나 이미 있는 것은 버린다 */
+export function addTag(tags: string[], raw: string): string[] {
+  const tag = raw.trim().replace(/^#+/, '').trim().slice(0, 40)
+  return tag && !tags.includes(tag) ? [...tags, tag] : tags
+}
+
+/** "2026년 11월 18일 오후 3:20" */
+export function formatLastEdited(iso: string): string {
+  const d = new Date(iso)
+  const time = d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${time}`
+}
 
 export const docTitle = (item: Item) => item.title.trim() || UNTITLED
 
@@ -31,12 +48,12 @@ export function createDocument(backend: VaultBackend, folderId: string | null, t
 export const documentsOf = (items: Item[]) =>
   items.filter((i) => i.kind === 'document').sort((a, b) => b.updated_at.localeCompare(a.updated_at))
 
-/** 제목과 본문에서 찾는다. 띄어쓰기로 나눈 낱말이 모두 들어 있어야 한다. */
+/** 제목, 본문, 태그에서 찾는다. 띄어쓰기로 나눈 낱말이 모두 들어 있어야 한다. */
 export function searchDocuments(docs: Item[], query: string): Item[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return docs
   return docs.filter((d) => {
-    const hay = `${d.title} ${docContent(d).text ?? ''}`.toLowerCase()
+    const hay = `${d.title} ${docContent(d).text ?? ''} ${docTags(d).map((t) => '#' + t).join(' ')}`.toLowerCase()
     return words.every((w) => hay.includes(w))
   })
 }

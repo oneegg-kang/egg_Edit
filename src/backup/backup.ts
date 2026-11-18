@@ -87,6 +87,7 @@ export async function createBackup(backend: VaultBackend, onProgress: ProgressFn
 
 /** 파일 이름에 쓸 수 없는 글자를 바꾼다. (Windows 기준이 가장 엄격하다) */
 export const safeFileName = (name: string) =>
+  // eslint-disable-next-line no-control-regex -- 파일 이름에 못 쓰는 제어 문자를 일부러 찾는다
   name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/[. ]+$/, '').slice(0, 120) || '_'
 
 /** 문서를 documents/<폴더 경로>/<제목>.html 로 넣는다. 복원에는 쓰지 않는 읽기용 사본이다. */

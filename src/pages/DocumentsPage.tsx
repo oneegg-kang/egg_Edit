@@ -3,11 +3,12 @@ import { useVault } from '../data/VaultProvider'
 import { createDocument, docPreview, docTitle, documentsOf, searchDocuments } from '../data/documents'
 import { folderPath, formatWhen } from '../data/vault'
 import { href } from '../lib/useHashRoute'
+import { useShell } from './AppShell'
 
 /** 모든 폴더의 문서를 최근 수정 순으로 보여 준다. */
 export function DocumentsPage() {
   const { backend, items, folders, loading, reload } = useVault()
-  const [query, setQuery] = useState('')
+  const { search: query, setSearch: setQuery } = useShell()
   const [error, setError] = useState<string | null>(null)
   const docs = searchDocuments(documentsOf(items), query)
 
