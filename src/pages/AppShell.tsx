@@ -147,7 +147,8 @@ function Sidebar({ email, onSignOut }: { email: string; onSignOut: () => void })
         value={search}
         onChange={(e) => {
           setSearch(e.target.value)
-          if (section !== 'docs' || id) window.location.hash = href('docs')
+          // 문서 화면이 아니면 문서 화면으로 (문서 화면이면 가운데 목록이 바로 걸러진다)
+          if (section !== 'docs') window.location.hash = href('docs')
         }}
       />
 

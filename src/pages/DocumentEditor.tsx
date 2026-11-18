@@ -157,7 +157,7 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     dirty.current = false
     clearTimeout(timer.current)
     await deleteItems(backend, [item])
-    window.location.hash = item.folder_id ? href('folders', item.folder_id) : href('docs')
+    window.location.hash = href('docs')
     reload()
   }
 
@@ -177,10 +177,13 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
   return (
     <section className="note">
       <header className="note-top">
+        <a className="icon-btn mobile-only" href={href('docs')} aria-label="문서 목록으로">
+          ←
+        </a>
         <button
-          className="icon-btn"
+          className="icon-btn desktop-only"
           onClick={toggleSidebar}
-          title={sidebarOpen ? '메뉴 접기 (넓게 보기)' : '메뉴 펼치기'}
+          title={sidebarOpen ? '메뉴와 목록 접기 (넓게 보기)' : '메뉴와 목록 펼치기'}
           aria-label={sidebarOpen ? '메뉴 접기' : '메뉴 펼치기'}
         >
           {sidebarOpen ? '⤢' : '☰'}

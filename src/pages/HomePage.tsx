@@ -5,7 +5,6 @@ import { href, useHashRoute } from '../lib/useHashRoute'
 import { BackupPanel } from './BackupPanel'
 import { FoldersPage } from './FoldersPage'
 import { DocumentsPage } from './DocumentsPage'
-import { DocumentEditorPage } from './DocumentEditor'
 import { AppShell, MobileBar } from './AppShell'
 
 const FEATURES = [
@@ -57,8 +56,7 @@ function Page({ title, children }: { title: string; children: ReactNode }) {
 
 function Routes() {
   const [section, id] = useHashRoute()
-  if (section === 'docs' && id) return <DocumentEditorPage id={id} />
-  if (section === 'docs') return <Page title="문서"><DocumentsPage /></Page>
+  if (section === 'docs') return <DocumentsPage selectedId={id ?? null} />
   if (section === 'folders') return <Page title="파일"><FoldersPage folderId={id ?? null} /></Page>
   return <Page title="egg_Edit"><Dashboard /></Page>
 }
