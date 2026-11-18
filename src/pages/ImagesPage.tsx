@@ -8,6 +8,7 @@ import { isImageFile } from '../editor/images'
 import { useFileUrl } from '../lib/useFileUrl'
 import { href } from '../lib/useHashRoute'
 import { useShell } from './AppShell'
+import { TakePhotoButton } from './CameraCapture'
 
 const FILTERS: { id: ImageFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -109,6 +110,7 @@ export function ImagesPage() {
         <button onClick={() => setNewOpen(!newOpen)} disabled={busy}>
           ✏️ 새 그림
         </button>
+        <TakePhotoButton onPhotos={upload} />
         <button className="secondary" onClick={() => fileInput.current?.click()} disabled={busy}>
           ⬆ 사진 올리기
         </button>

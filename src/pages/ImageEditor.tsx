@@ -21,6 +21,7 @@ import { cachedFileUrl } from '../lib/useFileUrl'
 import { href } from '../lib/useHashRoute'
 import { useShell } from './AppShell'
 import { safeFileName } from '../backup/backup'
+import { TakePhotoButton } from './CameraCapture'
 
 type Tool = 'select' | 'pen' | 'marker' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'text' | 'crop'
 
@@ -576,6 +577,7 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
         <button className="tool" onClick={() => photoInput.current?.click()} title="사진 넣기" aria-label="사진 넣기">
           🖼
         </button>
+        <TakePhotoButton className="tool" label="📷" onPhotos={insertPhotos} />
         <span className="sep" />
         <button className="tool" onClick={() => commit(rotateCanvas(docRef.current))} title="오른쪽으로 90° 돌리기" aria-label="오른쪽으로 90° 돌리기">
           ⟳
