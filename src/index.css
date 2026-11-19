@@ -215,7 +215,9 @@ button.tool.on { background: var(--accent); color: var(--accent-text); }
 .menu .danger { color: #d0453a; }
 
 .note .toolbar {
-  position: static; border: none; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  /* z-index 를 없앤다: 편집 화면의 막대들은 flex 항목이라 z-index 가 있으면 각자 층이 되어
+     위 막대에서 연 메뉴가 아래 막대에 가려진다 */
+  position: static; z-index: auto; border: none; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   border-radius: 0; background: transparent; padding: 4px 16px; flex: none;
 }
 .note-scroll { flex: 1; overflow-y: auto; }
@@ -592,3 +594,72 @@ button.shutter {
   box-shadow: 0 0 0 3px #fff; flex: none;
 }
 button.shutter:active:not(:disabled) { transform: scale(0.94); }
+
+/* ── 이미지 편집: 사진 불러오기·편집 ── */
+button.tool.labeled { font-size: 0.85rem; padding: 0 10px; white-space: nowrap; }
+button.tool.labeled.accent { background: var(--accent); color: var(--accent-text); }
+button.tool.labeled.accent:hover { filter: brightness(1.05); background: var(--accent); }
+.menu-note { color: var(--muted); padding: 6px 10px 2px; font-size: 0.75rem; }
+
+.photo-panel {
+  display: grid; gap: 4px; padding: 6px 16px 8px; background: var(--bg); border-bottom: 1px solid var(--line); flex: none;
+  max-height: 40vh; overflow-y: auto;
+}
+.pp-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pp-row .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+.pp-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); min-width: 56px; flex: none; }
+.pp-row input[type=range] { width: 130px; padding: 0; accent-color: var(--accent); }
+.pp-row label { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; }
+.pp-row label input[type=range] { width: 90px; }
+.pp-row button.tool { font-size: 0.8rem; height: 30px; }
+.num-box { display: inline-flex; align-items: center; gap: 2px; font-size: 0.8rem; color: var(--muted); }
+.num-box input { width: 60px; padding: 4px 6px; font-size: 0.85rem; text-align: right; background: var(--card); }
+button.tool.lock { min-width: 30px; padding: 0 4px; }
+
+.photo-strip {
+  display: flex; align-items: center; gap: 6px; padding: 6px 16px; border-bottom: 1px solid var(--line); overflow-x: auto; flex: none;
+}
+button.strip-thumb {
+  position: relative; width: 52px; height: 40px; flex: none; padding: 0; border-radius: 6px; overflow: hidden;
+  background: var(--side); border: 2px solid transparent;
+}
+button.strip-thumb.on { border-color: var(--accent); }
+button.strip-thumb img { width: 100%; height: 100%; object-fit: cover; }
+button.strip-thumb span {
+  position: absolute; left: 2px; top: 1px; font-size: 0.65rem; background: rgb(0 0 0 / 0.6); color: #fff; border-radius: 3px; padding: 0 3px;
+}
+
+.start-photos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+button.start-big {
+  display: grid; gap: 4px; justify-items: center; padding: 18px 12px; border-radius: 12px; font-size: 1rem;
+  background: var(--card); color: var(--text); border: 2px solid var(--accent);
+}
+button.start-big span { font-size: 2rem; }
+button.start-big small { color: var(--muted); font-weight: normal; }
+button.start-big:hover { background: var(--side); }
+
+.crop-box { width: min(1000px, 100%); }
+.crop-ratios { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.crop-ratios .chip { background: rgb(255 255 255 / 0.12); color: #fff; border-color: rgb(255 255 255 / 0.3); }
+.crop-ratios .chip.on { background: var(--accent); color: var(--accent-text); }
+.crop-size { color: #ccc; margin-left: auto; font-variant-numeric: tabular-nums; }
+.crop-stage { display: grid; place-items: center; background: #111; border-radius: 8px; padding: 12px; }
+.crop-img { position: relative; touch-action: none; cursor: crosshair; user-select: none; line-height: 0; }
+.crop-img img { max-width: min(940px, 86vw); max-height: 62vh; display: block; }
+.crop-sel {
+  position: absolute; border: 2px solid var(--accent); box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.55); cursor: move;
+  background-image: linear-gradient(rgb(255 255 255 / 0.35) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.35) 1px, transparent 1px);
+  background-size: 33.33% 33.33%; background-position: -1px -1px;
+}
+.pp-tabs { display: none; gap: 6px; }
+@media (max-width: 800px) {
+  .photo-panel { padding: 6px 8px; }
+  .pp-tabs { display: flex; overflow-x: auto; }
+  .photo-panel .pp-row { display: none; }
+  .photo-panel.tab-size .pp-row[data-tab='size'],
+  .photo-panel.tab-angle .pp-row[data-tab='angle'],
+  .photo-panel.tab-adjust .pp-row[data-tab='adjust'] { display: flex; }
+  .pp-label { display: none; }
+  .photo-strip { padding: 6px 8px; }
+  .pp-row input[type=range] { width: 100px; }
+}

@@ -4,8 +4,13 @@ import { Arrow, Ellipse, Image as KImage, Layer, Line, Rect, Stage, Text, Transf
 import { useVault } from '../data/VaultProvider'
 import type { Item } from '../data/types'
 import {
+  arrangePhotos,
   canvasPaths,
   cropCanvas,
+  cropPhoto,
+  fitCanvasToContent,
+  layoutPhotos,
+  resizeCanvas,
   flipCanvas,
   imageContent,
   photoCanvas,
@@ -18,10 +23,12 @@ import { deleteItems } from '../data/vault'
 import { docImagePath, isImageFile } from '../editor/images'
 import { TEXT_COLORS } from '../editor/extensions'
 import { cachedFileUrl } from '../lib/useFileUrl'
+import { naturalSize } from '../lib/naturalSize'
 import { href } from '../lib/useHashRoute'
 import { useShell } from './AppShell'
 import { safeFileName } from '../backup/backup'
 import { TakePhotoButton } from './CameraCapture'
+import { CanvasMenu, CropDialog, PhotoPanel, PhotoStrip } from '../editor/PhotoTools'
 
 type Tool = 'select' | 'pen' | 'marker' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'text' | 'crop'
 
@@ -35,7 +42,7 @@ const TOOLS: { id: Tool; icon: string; label: string }[] = [
   { id: 'rect', icon: '▢', label: '네모' },
   { id: 'ellipse', icon: '◯', label: '동그라미' },
   { id: 'text', icon: 'T', label: '글자' },
-  { id: 'crop', icon: '⛶', label: '자르기' },
+  { id: 'crop', icon: '⛶', label: '캔버스 자르기' },
 ]
 
 const COLORS = ['#ffffff', ...TEXT_COLORS.map((c) => c.value)]
@@ -112,6 +119,7 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
   const [fitZoom, setFitZoom] = useState(1)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [cropping, setCropping] = useState<Shape | null>(null) // 사진 자르기 창
 
   const stageRef = useRef<Konva.Stage>(null)
   const trRef = useRef<Konva.Transformer>(null)
@@ -354,35 +362,54 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
     setTool('select')
   }
 
-  // ── 사진 넣기 ──
+  // ── 사진 넣기 (여러 장이면 캔버스 안에 나란히) ──
   async function insertPhotos(files: File[]) {
-    for (const file of files.filter(isImageFile)) {
+    const pics = files.filter(isImageFile)
+    if (!pics.length) return
+    const added: Shape[] = []
+    const failed: string[] = []
+    for (const [n, file] of pics.entries()) {
       try {
-        setNotice(`사진 올리는 중… ${file.name}`)
+        setNotice(`사진 올리는 중 (${n + 1}/${pics.length}) ${file.name}`)
+        const size = await naturalSize(file)
         const path = docImagePath(userId, item.id, file)
         await backend.uploadFile(path, file, file.type || 'image/png')
-        const url = await cachedFileUrl(backend, path)
-        const img = await new Promise<HTMLImageElement>((res, rej) => {
-          const el = new window.Image()
-          el.crossOrigin = 'anonymous'
-          el.onload = () => res(el)
-          el.onerror = () => rej(new Error('사진을 열 수 없어요'))
-          el.src = url
-        })
-        const d = docRef.current
-        const s = Math.min(1, (d.width * 0.8) / img.naturalWidth, (d.height * 0.8) / img.naturalHeight)
-        const w = img.naturalWidth * s
-        const h = img.naturalHeight * s
-        const shape: Shape = { id: uid(), type: 'image', x: (d.width - w) / 2, y: (d.height - h) / 2, width: w, height: h, storagePath: path }
-        commit({ ...d, shapes: [...d.shapes, shape] })
-        setTool('select')
-        setSelectedId(shape.id)
-        setNotice(null)
+        added.push({ id: uid(), type: 'image', x: 0, y: 0, width: size.width, height: size.height, naturalWidth: size.width, naturalHeight: size.height, storagePath: path })
       } catch (e) {
-        setNotice(`사진 넣기 실패: ${e instanceof Error ? e.message : String(e)}`)
+        failed.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`)
       }
     }
+    if (added.length) {
+      const d = docRef.current
+      let placed: Shape[]
+      if (added.length === 1) {
+        // 한 장: 캔버스의 80% 안에 들어가게, 가운데
+        const p = added[0]
+        const k = Math.min(1, (d.width * 0.8) / p.width!, (d.height * 0.8) / p.height!)
+        const w = p.width! * k
+        const h = p.height! * k
+        placed = [{ ...p, width: w, height: h, x: (d.width - w) / 2, y: (d.height - h) / 2 }]
+      } else {
+        // 여러 장: 캔버스 폭에 맞춰 격자로, 높이가 넘치면 전체를 줄여서 가운데
+        const l = layoutPhotos(added.map((p) => ({ width: p.width!, height: p.height! })), { canvasWidth: d.width })
+        const k = Math.min(1, d.height / l.height)
+        const offY = (d.height - l.height * k) / 2
+        const offX = (d.width - l.width * k) / 2
+        placed = added.map((p, i) => {
+          const bx = l.boxes[i]
+          return { ...p, x: offX + bx.x * k, y: offY + bx.y * k, width: bx.width * k, height: bx.height * k }
+        })
+      }
+      commit({ ...d, shapes: [...d.shapes, ...placed] })
+      setTool('select')
+      setSelectedId(placed[placed.length - 1].id)
+    }
+    setNotice(failed.length ? `사진 ${failed.length}장 넣기 실패\n${failed.join('\n')}` : added.length > 1 ? `사진 ${added.length}장을 나란히 넣었어요. 사진을 눌러 크기·각도를 바꿔 보세요.` : null)
   }
+
+  // 사진 편집 막대: 끄는 중에는 화면만, 놓으면 확정
+  const previewShape = (next: Shape) => setDoc((d) => ({ ...d, shapes: d.shapes.map((s) => (s.id === next.id ? next : s)) }))
+  const commitShape = (next: Shape) => commit({ ...docRef.current, shapes: docRef.current.shapes.map((s) => (s.id === next.id ? next : s)) })
 
   // 고른 도형에 색/굵기 바로 적용
   const pickColor = (c: string) => {
@@ -574,15 +601,24 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
             {t.icon}
           </button>
         ))}
-        <button className="tool" onClick={() => photoInput.current?.click()} title="사진 넣기" aria-label="사진 넣기">
-          🖼
-        </button>
-        <TakePhotoButton className="tool" label="📷" onPhotos={insertPhotos} />
         <span className="sep" />
-        <button className="tool" onClick={() => commit(rotateCanvas(docRef.current))} title="오른쪽으로 90° 돌리기" aria-label="오른쪽으로 90° 돌리기">
+        <button className="tool labeled accent" onClick={() => photoInput.current?.click()} title="사진 불러오기 (여러 장 가능)" aria-label="사진 불러오기">
+          🖼 사진 불러오기
+        </button>
+        <TakePhotoButton className="tool labeled accent" label="📷 사진 찍기" onPhotos={insertPhotos} />
+        <span className="sep" />
+        <CanvasMenu
+          doc={doc}
+          hasPhotos={photos.length > 0}
+          onArrange={() => commit(arrangePhotos(docRef.current))}
+          onFitContent={() => commit(fitCanvasToContent(docRef.current))}
+          onResize={(w, h) => commit(resizeCanvas(docRef.current, w, h))}
+          onBackground={(bg) => commit({ ...docRef.current, background: bg })}
+        />
+        <button className="tool" onClick={() => commit(rotateCanvas(docRef.current))} title="캔버스 전체를 오른쪽으로 90° 돌리기" aria-label="캔버스 전체 90° 돌리기">
           ⟳
         </button>
-        <button className="tool" onClick={() => commit(flipCanvas(docRef.current))} title="좌우 뒤집기" aria-label="좌우 뒤집기">
+        <button className="tool" onClick={() => commit(flipCanvas(docRef.current))} title="캔버스 전체 좌우 뒤집기" aria-label="캔버스 전체 좌우 뒤집기">
           ⇋
         </button>
         <span className="sep" />
@@ -657,42 +693,36 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
         )}
       </div>
 
+      <PhotoStrip
+        photos={photos}
+        selectedId={selectedId}
+        onSelect={(id) => {
+          setTool('select')
+          setSelectedId(id)
+        }}
+      />
+
       {selected?.type === 'image' && tool === 'select' && (
-        <div className="toolbar img-adjust" role="group" aria-label="사진 보정">
-          <span className="table-bar-label">🖼 사진 보정</span>
-          <label>
-            밝기
-            <input
-              type="range"
-              min={-0.5}
-              max={0.5}
-              step={0.05}
-              value={selected.filters?.brightness ?? 0}
-              onChange={(e) => setDoc({ ...doc, shapes: doc.shapes.map((s) => (s.id === selected.id ? { ...s, filters: { ...s.filters, brightness: Number(e.target.value) } } : s)) })}
-              onPointerUp={() => commit(docRef.current)}
-              onKeyUp={() => commit(docRef.current)}
-            />
-          </label>
-          <label>
-            대비
-            <input
-              type="range"
-              min={-50}
-              max={50}
-              step={5}
-              value={selected.filters?.contrast ?? 0}
-              onChange={(e) => setDoc({ ...doc, shapes: doc.shapes.map((s) => (s.id === selected.id ? { ...s, filters: { ...s.filters, contrast: Number(e.target.value) } } : s)) })}
-              onPointerUp={() => commit(docRef.current)}
-              onKeyUp={() => commit(docRef.current)}
-            />
-          </label>
-          <button className={`tool ${selected.filters?.grayscale ? 'on' : ''}`} onClick={() => updateShape(selected.id, { filters: { ...selected.filters, grayscale: !selected.filters?.grayscale } })}>
-            흑백
-          </button>
-          <button className="tool" onClick={() => updateShape(selected.id, { filters: {} })}>
-            원래대로
-          </button>
-        </div>
+        <PhotoPanel
+          shape={selected}
+          doc={doc}
+          onPreview={previewShape}
+          onCommit={commitShape}
+          onCommitCurrent={() => commit(docRef.current)}
+          onCrop={() => setCropping(selected)}
+        />
+      )}
+
+      {cropping && (
+        <CropDialog
+          shape={cropping}
+          onClose={() => setCropping(null)}
+          onApply={(c) => {
+            const latest = docRef.current.shapes.find((x) => x.id === cropping.id)
+            if (latest) commitShape(cropPhoto(latest, c))
+            setCropping(null)
+          }}
+        />
       )}
 
       {tool === 'crop' && (
@@ -755,6 +785,8 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
               <Transformer
                 ref={trRef}
                 rotateEnabled
+                rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+                rotationSnapTolerance={4}
                 keepRatio={selected?.type === 'image' || selected?.type === 'text'}
                 anchorSize={Math.max(8, 10 / zoom) * zoom}
                 borderStroke="#e8a317"
@@ -837,7 +869,7 @@ function PhotoNode({ shape, props, pending }: { shape: Shape; props: Record<stri
     if (filters.length) node.cache()
     else node.clearCache()
     node.getLayer()?.batchDraw()
-  }, [img, filters, shape.width, shape.height])
+  }, [img, filters, shape.width, shape.height, shape.crop])
 
   return (
     <KImage
@@ -846,10 +878,10 @@ function PhotoNode({ shape, props, pending }: { shape: Shape; props: Record<stri
       image={img ?? undefined}
       width={shape.width}
       height={shape.height}
+      crop={shape.crop}
       filters={filters}
       brightness={f?.brightness ?? 0}
       contrast={f?.contrast ?? 0}
     />
   )
 }
-

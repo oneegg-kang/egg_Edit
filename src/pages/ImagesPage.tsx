@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useVault } from '../data/VaultProvider'
 import type { Item } from '../data/types'
-import { CANVAS_PRESETS, createDrawing, filterImages, imageContent, imagesOf, type ImageFilter } from '../data/images'
+import { CANVAS_PRESETS, canvasFromPhotos, createDrawing, filterImages, imageContent, imagesOf, type ImageFilter } from '../data/images'
 import { deleteItems, formatBytes, formatWhen, uploadFileItem } from '../data/vault'
 import { MAX_FILE_BYTES } from '../data/uploadTree'
-import { isImageFile } from '../editor/images'
+import { docImagePath, isImageFile } from '../editor/images'
+import { naturalSize } from '../lib/naturalSize'
 import { useFileUrl } from '../lib/useFileUrl'
 import { href } from '../lib/useHashRoute'
 import { useShell } from './AppShell'
@@ -28,6 +29,7 @@ export function ImagesPage() {
   const [viewIndex, setViewIndex] = useState<number | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const editInput = useRef<HTMLInputElement>(null)
 
   const all = imagesOf(items)
   const images = filterImages(all, filter, query)
@@ -78,6 +80,30 @@ export function ImagesPage() {
       window.location.hash = href('images', item.id)
     })
 
+  /** 사진(여러 장 가능)을 불러와서 바로 편집기로 */
+  const editPhotos = (files: File[]) => {
+    const pics = files.filter(isImageFile)
+    if (!pics.length) return setStatus('사진 파일(jpg, png, gif, webp 등)을 골라 주세요.')
+    run(async () => {
+      const item = await createDrawing(backend, 1600, 900)
+      const uploaded: { storagePath: string; width: number; height: number }[] = []
+      for (const [n, file] of pics.entries()) {
+        setStatus(`사진 준비 중 (${n + 1}/${pics.length}) ${file.name}`)
+        const size = await naturalSize(file)
+        const path = docImagePath(userId, item.id, file)
+        await backend.uploadFile(path, file, file.type || 'image/jpeg')
+        uploaded.push({ storagePath: path, ...size })
+      }
+      const canvas = canvasFromPhotos(uploaded)
+      await backend.updateItem(item.id, {
+        title: pics.length === 1 ? pics[0].name.replace(/\.[^.]+$/, '') : `사진 ${pics.length}장 편집`,
+        content: { canvas, source: 'photo', width: canvas.width, height: canvas.height, attachments: uploaded.map((u) => u.storagePath) },
+      })
+      setNewOpen(false)
+      window.location.hash = href('images', item.id)
+    })
+  }
+
   const onDrop = (e: DragEvent) => {
     e.preventDefault()
     setDragging(false)
@@ -108,7 +134,7 @@ export function ImagesPage() {
           </small>
         </div>
         <button onClick={() => setNewOpen(!newOpen)} disabled={busy}>
-          ✏️ 새 그림
+          ✏️ 새로 만들기 / 편집
         </button>
         <TakePhotoButton onPhotos={upload} />
         <button className="secondary" onClick={() => fileInput.current?.click()} disabled={busy}>
@@ -130,11 +156,31 @@ export function ImagesPage() {
       {newOpen && (
         <div className="yt-panel">
           <div className="yt-head">
-            <strong>새 그림 크기</strong>
+            <strong>새로 만들기</strong>
             <button className="icon-btn" onClick={() => setNewOpen(false)} aria-label="닫기">
               ✕
             </button>
           </div>
+          <div className="start-photos">
+            <button className="start-big" onClick={() => editInput.current?.click()} disabled={busy}>
+              <span>🖼</span>
+              <strong>사진 불러와서 편집</strong>
+              <small>여러 장을 고르면 나란히 놓고 크기·각도를 편집해요</small>
+            </button>
+            <TakePhotoButton className="start-big" label="📷 찍어서 편집" onPhotos={editPhotos} disabled={busy} />
+            <input
+              ref={editInput}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                editPhotos([...(e.target.files ?? [])])
+                e.target.value = ''
+              }}
+            />
+          </div>
+          <small className="muted">또는 빈 캔버스에 그리기:</small>
           <div className="presets">
             {CANVAS_PRESETS.map((p) => (
               <button key={p.label} className="preset" onClick={() => newDrawing(p.width, p.height)} disabled={busy}>
