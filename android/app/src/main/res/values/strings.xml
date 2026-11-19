@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">egg_Edit</string>
+    <string name="title_activity_main">egg_Edit</string>
+    <string name="package_name">com.oneeggkang.eggedit</string>
+    <string name="custom_url_scheme">com.oneeggkang.eggedit</string>
+</resources>

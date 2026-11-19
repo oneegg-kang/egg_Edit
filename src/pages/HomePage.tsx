@@ -3,6 +3,7 @@ import { VaultProvider, useVault } from '../data/VaultProvider'
 import type { VaultBackend } from '../data/types'
 import { href, useHashRoute } from '../lib/useHashRoute'
 import { BackupPanel } from './BackupPanel'
+import { InstallPanel } from './InstallPanel'
 import { FoldersPage } from './FoldersPage'
 import { DocumentsPage } from './DocumentsPage'
 import { AppShell, MobileBar } from './AppShell'
@@ -46,6 +47,7 @@ function Dashboard() {
         })}
       </section>
       <BackupPanel backend={backend} userId={userId} onRestored={reload} />
+      <InstallPanel />
     </>
   )
 }

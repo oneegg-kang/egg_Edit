@@ -54,6 +54,35 @@ supabase/     데이터베이스 구조 (SQL)
 docs/         설계 문서
 ```
 
+## 앱으로 쓰기
+
+| 기기 | 방법 |
+|---|---|
+| Windows / Mac / Linux | [Releases](https://github.com/oneegg-kang/egg_Edit/releases) 에서 설치 파일 (`.exe`/`.msi`, `.dmg`, `.AppImage`/`.deb`) |
+| Android | [Releases](https://github.com/oneegg-kang/egg_Edit/releases) 에서 `.apk` (설치할 때 "출처를 알 수 없는 앱" 허용) |
+| iPhone / iPad | Safari 로 웹 주소를 열고 공유(□↑) → **홈 화면에 추가** |
+| 어느 기기든 | Chrome·Edge 에서 "앱 설치" (PWA) |
+
+### 새 버전 앱 만들기
+
+1. `package.json` 의 `version` 을 올립니다. (예: `0.5.0` → `0.6.0`)
+2. 같은 버전의 태그를 올립니다.
+   ```bash
+   git tag v0.6.0 && git push origin v0.6.0
+   ```
+3. GitHub **Actions** 의 "Apps" 가 Windows·Mac·Linux·Android 앱을 만들어 **Releases 에 초안** 으로 올립니다. (20~30분)
+4. Releases 에서 초안을 확인하고 **Publish release** 를 누르면 공개됩니다.
+
+### 폴더 구조 (앱)
+
+```
+src-tauri/   PC 앱 (Tauri, Rust) — 설정 tauri.conf.json, 권한 capabilities/
+android/     Android 앱 (Capacitor) — 설정 ../capacitor.config.ts
+src/lib/platform.ts   웹·PC·휴대폰에 따라 달라지는 동작 (파일 저장, 바깥 링크)
+```
+
+내 컴퓨터에서 PC 앱 만들기: [Rust](https://rustup.rs) 를 설치한 뒤 `npx tauri dev` (개발) / `npx tauri build` (설치 파일).
+
 ## 유튜브 검색 켜기 (선택)
 
 음악·동영상 화면의 **🔍 유튜브 검색** 은 Google 의 YouTube Data API 키가 있어야 동작합니다. (무료, 하루 약 100번 검색)

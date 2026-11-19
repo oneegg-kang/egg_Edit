@@ -1,0 +1,118 @@
+# PC 앱(Windows, Mac, Linux)과 Android 앱을 만들어 GitHub Releases 에 "초안" 으로 올린다.
+#   실행: v0.5.0 같은 태그를 올리거나, Actions 탭에서 "Apps" → Run workflow (버전 입력)
+#   초안은 저장소 주인만 보이고, Releases 페이지에서 "Publish" 를 누르면 공개된다.
+name: Apps
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '버전 (예: 0.5.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  # 공개용(publishable) 값. 관리자(secret) 키는 절대 넣지 않는다.
+  VITE_SUPABASE_URL: https://fowgxyiewidbpuinjmlb.supabase.co
+  VITE_SUPABASE_ANON_KEY: sb_publishable_FnSEwxtYfIOgJaRy5Bkgiw_N3X15gfs
+  VITE_YOUTUBE_API_KEY: ${{ vars.YOUTUBE_API_KEY }}
+
+jobs:
+  release:
+    name: 릴리스 초안 만들기
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      id: ${{ steps.r.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then TAG="${GITHUB_REF_NAME}"; else TAG="v${{ inputs.version }}"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - id: r
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "egg_Edit $TAG" --notes-file .github/release-notes.md
+          fi
+          ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -1)
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+  desktop:
+    name: PC 앱 (${{ matrix.name }})
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            args: ''
+          - name: Mac
+            os: macos-latest
+            args: '--target universal-apple-darwin'
+          - name: Linux
+            os: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux 에 필요한 도구
+        if: matrix.name == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.name == 'Mac' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm test
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          releaseId: ${{ needs.release.outputs.id }}
+          args: ${{ matrix.args }}
+
+  android:
+    name: Android 앱
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/sync-version.mjs
+      - run: npx cap sync android
+      - name: APK 만들기
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: 릴리스에 올리기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk "egg_Edit_${TAG#v}_android.apk"
+          gh release upload "$TAG" "egg_Edit_${TAG#v}_android.apk" --clobber

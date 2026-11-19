@@ -10,6 +10,7 @@ import { safeFileName } from '../backup/backup'
 import { deleteItems, folderPath } from '../data/vault'
 import { href } from '../lib/useHashRoute'
 import { MobileBar, useShell } from './AppShell'
+import { saveFile } from '../lib/platform'
 
 const SAVE_DELAY_MS = 800
 
@@ -219,17 +220,13 @@ function DocumentEditor({ item, path }: { item: Item; path: string[] }) {
     reload()
   }
 
-  function downloadHtml() {
+  async function downloadHtml() {
     setMenuOpen(false)
     if (!editor) return
     const name = title.trim() || UNTITLED
     const blob = new Blob([standaloneHtml(name, editor.getHTML())], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${safeFileName(name)}.html`
-    a.click()
-    URL.revokeObjectURL(url)
+    const r = await saveFile(blob, `${safeFileName(name)}.html`).catch((e) => `저장 실패: ${e instanceof Error ? e.message : String(e)}`)
+    if (r && r !== 'cancelled') setImageStatus(r)
   }
 
   return (

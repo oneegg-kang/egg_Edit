@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useVault } from '../data/VaultProvider'
 import type { Item } from '../data/types'
 import { formatDuration, isLinkTrack, musicContent, parseMusicLink } from '../data/music'
+import { openExternal } from '../lib/platform'
 
 // 음악 재생기. 화면 틀(AppShell) 안에 한 번만 있어서, 다른 화면으로 옮겨 가도 계속 재생된다.
 //   파일 음악 → <audio> 로 재생 (이어 듣기, 반복, 섞기, 잠금 화면 조작)
@@ -87,7 +88,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const info = parseMusicLink(musicContent(track).url ?? '')
         if (!info?.embedUrl) {
           // 앱 안에서 재생할 수 없는 곳(멜론 등)은 새 탭으로
-          window.open(musicContent(track).url, '_blank', 'noopener')
+          openExternal(musicContent(track).url!)
           return
         }
         audio.current?.pause()

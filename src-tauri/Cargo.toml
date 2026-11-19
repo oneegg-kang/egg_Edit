@@ -1,0 +1,29 @@
+[package]
+name = "egg-edit"
+version = "0.1.0"
+description = "egg_Edit: 나만의 저장소"
+authors = ["oneegg-kang"]
+license = ""
+repository = "https://github.com/oneegg-kang/egg_Edit"
+edition = "2024"
+rust-version = "1.90"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "egg_edit_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-log = "2"
+# 파일 저장 창, 파일 쓰기, 바깥 링크 열기
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"

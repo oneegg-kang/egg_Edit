@@ -10,6 +10,8 @@ import { useFileUrl } from '../lib/useFileUrl'
 import { href } from '../lib/useHashRoute'
 import { useShell } from './AppShell'
 import { TakePhotoButton } from './CameraCapture'
+import { downloadFromUrl } from '../lib/platform'
+const noteOf = (r: string | null | 'cancelled') => (r && r !== 'cancelled' ? r : undefined)
 
 const FILTERS: { id: ImageFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -221,7 +223,12 @@ export function ImagesPage() {
                 const t = prompt('이름 바꾸기', img.title)?.trim()
                 if (t && t !== img.title) run(async () => void (await backend.updateItem(img.id, { title: t })))
               }}
-              onDownload={() => run(async () => window.location.assign(await backend.fileUrl(img.storage_path!, `${img.title}.${img.mime_type === 'image/png' ? 'png' : 'jpg'}`)))}
+              onDownload={() =>
+                run(async () => {
+                  const name = `${img.title}.${img.mime_type === 'image/png' ? 'png' : 'jpg'}`
+                  return noteOf(await downloadFromUrl(await backend.fileUrl(img.storage_path!, name), name))
+                })
+              }
               onDelete={() => {
                 if (!confirm(`'${img.title}' 을(를) 삭제할까요? 원본 사진과 편집한 그림이 모두 지워집니다.`)) return
                 run(async () => {

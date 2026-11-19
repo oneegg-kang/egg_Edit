@@ -29,6 +29,7 @@ import { useShell } from './AppShell'
 import { safeFileName } from '../backup/backup'
 import { TakePhotoButton } from './CameraCapture'
 import { CanvasMenu, CropDialog, PhotoPanel, PhotoStrip } from '../editor/PhotoTools'
+import { saveFile } from '../lib/platform'
 
 type Tool = 'select' | 'pen' | 'marker' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'text' | 'crop'
 
@@ -445,12 +446,15 @@ function ImageEditor({ item, initial }: { item: Item; initial: CanvasDoc }) {
     const stage = stageRef.current
     if (!stage) return
     uiLayerRef.current?.hide()
-    const url = stage.toDataURL({ pixelRatio: 1 / stage.scaleX(), mimeType: 'image/png' })
-    uiLayerRef.current?.show()
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${safeFileName(title || '그림')}.png`
-    a.click()
+    try {
+      const blob = (await stage.toBlob({ pixelRatio: 1 / stage.scaleX(), mimeType: 'image/png' })) as Blob
+      const r = await saveFile(blob, `${safeFileName(title || '그림')}.png`)
+      if (r && r !== 'cancelled') setNotice(r)
+    } catch (e) {
+      setNotice(`내려받기 실패: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      uiLayerRef.current?.show()
+    }
   }
 
   const photos = doc.shapes.filter((s) => s.type === 'image')

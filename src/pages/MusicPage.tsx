@@ -18,6 +18,8 @@ import { MAX_FILE_BYTES } from '../data/uploadTree'
 import { usePlayer } from '../player/Player'
 import { useShell } from './AppShell'
 import { YouTubeSearch } from './YouTubeSearch'
+import { downloadFromUrl } from '../lib/platform'
+const noteOf = (r: string | null | 'cancelled') => (r && r !== 'cancelled' ? r : undefined)
 
 const FILTERS: { id: MusicFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -119,7 +121,7 @@ export function MusicPage() {
 
   const download = (t: Item) =>
     run(async () => {
-      window.location.assign(await backend.fileUrl(t.storage_path!, t.title))
+      return noteOf(await downloadFromUrl(await backend.fileUrl(t.storage_path!, t.title), t.title))
     })
 
   return (

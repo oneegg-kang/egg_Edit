@@ -18,6 +18,8 @@ import { useFileUrl } from '../lib/useFileUrl'
 import { usePlayer } from '../player/Player'
 import { useShell } from './AppShell'
 import { YouTubeSearch } from './YouTubeSearch'
+import { downloadFromUrl, openExternal } from '../lib/platform'
+const noteOf = (r: string | null | 'cancelled') => (r && r !== 'cancelled' ? r : undefined)
 
 const FILTERS: { id: MusicFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -130,7 +132,7 @@ export function VideoPage() {
 
   const open = (v: Item) => {
     if (isLinkTrack(v) && !parseMusicLink(videoContent(v).url ?? '')?.embedUrl) {
-      window.open(videoContent(v).url, '_blank', 'noopener')
+      openExternal(videoContent(v).url!)
       return
     }
     if (player.playing) player.pause() // 음악은 잠시 멈춘다
@@ -279,7 +281,7 @@ export function VideoPage() {
                 onOpen={() => open(v)}
                 onFavorite={() => run(async () => void (await backend.updateItem(v.id, { content: { ...v.content, favorite: !videoContent(v).favorite } })))}
                 onEdit={() => setEditing(v)}
-                onDownload={() => run(async () => window.location.assign(await backend.fileUrl(v.storage_path!, `${v.title}.mp4`)))}
+                onDownload={() => run(async () => noteOf(await downloadFromUrl(await backend.fileUrl(v.storage_path!, `${v.title}.mp4`), `${v.title}.mp4`)))}
                 onDelete={() => {
                   if (!confirm(`'${v.title}' 을(를) 삭제할까요?${v.storage_path ? ' 동영상 파일도 함께 지워집니다.' : ''}`)) return
                   run(async () => {

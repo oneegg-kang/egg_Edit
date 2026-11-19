@@ -1,0 +1,55 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "egg_Edit",
+  "version": "../package.json",
+  "identifier": "com.oneeggkang.eggedit",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "egg_Edit",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 380,
+        "minHeight": 500,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "oneegg-kang",
+    "copyright": "© oneegg-kang",
+    "category": "Productivity",
+    "shortDescription": "글·그림·파일·음악·동영상을 모두 동기화하는 나만의 저장소",
+    "longDescription": "egg_Edit: PC, 웹, 휴대폰에서 글, 그림, 파일, 음악, 동영상을 모두 동기화하는 나만의 저장소",
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  }
+}

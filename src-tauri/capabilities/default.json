@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "egg_Edit 창에서 쓸 수 있는 기능: 기본 기능, 파일 저장 창, 고른 곳에 파일 쓰기, 바깥 링크 열기",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:allow-save",
+    "fs:allow-write-file",
+    "opener:default"
+  ]
+}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2b631"/>
+      <stop offset="1" stop-color="#e09a12"/>
+    </linearGradient>
+    <linearGradient id="egg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f3eee2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <!-- 달걀 -->
+  <path d="M512 176 C 676 176 792 420 792 584 C 792 748 666 860 512 860 C 358 860 232 748 232 584 C 232 420 348 176 512 176 Z"
+        fill="url(#egg)" stroke="#c98a0c" stroke-width="10"/>
+  <!-- 연필 선 (편집) -->
+  <path d="M372 640 C 430 590 470 690 530 630 S 620 600 660 560" fill="none" stroke="#e8a317" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="452" cy="420" r="38" fill="#fde68a"/>
+</svg>

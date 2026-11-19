@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { backupFileName, createBackup, restoreBackup } from '../backup/backup'
 import type { VaultBackend } from '../data/types'
+import { saveFile } from '../lib/platform'
 
 export function BackupPanel({
   backend,
@@ -29,13 +30,9 @@ export function BackupPanel({
   const download = () =>
     run(async () => {
       const blob = await createBackup(backend, setStatus)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = backupFileName()
-      a.click()
-      URL.revokeObjectURL(url)
-      return '백업 파일을 내려받았습니다. 안전한 곳(PC, 외장 디스크, 다른 클라우드)에 보관하세요.'
+      const r = await saveFile(blob, backupFileName())
+      if (r === 'cancelled') return '백업 저장을 취소했습니다.'
+      return `${r ?? '백업 파일을 내려받았습니다.'} 안전한 곳(PC, 외장 디스크, 다른 클라우드)에 보관하세요.`
     })
 
   const restore = (file: File) =>

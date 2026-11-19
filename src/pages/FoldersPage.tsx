@@ -15,6 +15,7 @@ import { summarize, uploadPlan, type UploadPlan } from '../data/uploadTree'
 import { createDocument, docTitle } from '../data/documents'
 import { readDataTransfer, readDirectoryInput } from '../lib/readDropped'
 import { href } from '../lib/useHashRoute'
+import { downloadFromUrl } from '../lib/platform'
 
 const KIND_ICON: Record<Item['kind'], string> = { document: '📝', image: '🎨', file: '📄', music: '🎵', video: '🎬' }
 
@@ -112,7 +113,8 @@ export function FoldersPage({ folderId }: { folderId: string | null }) {
   const download = (item: Item) =>
     run(async () => {
       const url = await backend.fileUrl(item.storage_path!, item.title)
-      window.location.assign(url)
+      const r = await downloadFromUrl(url, item.title)
+      return r && r !== 'cancelled' ? r : undefined
     })
 
   const renameItem = (item: Item) => {
